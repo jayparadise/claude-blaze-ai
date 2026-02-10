@@ -14,7 +14,7 @@ st.set_page_config(
 API_KEY = '10019992-c9b1-46b5-be2c-9e760b1c2041'
 API_URL = 'https://odds.oddsblaze.com'
 
-# Custom CSS - DraftKings Carousel Style
+# Custom CSS - Bet Builder Style (Light theme with mobile support)
 st.markdown("""
 <style>
     /* Hide Streamlit branding */
@@ -22,15 +22,15 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Dark theme background */
+    /* Main container - light cream background */
     .main {
-        background: #0d1117;
-        color: white;
+        background: #f5f3ed;
+        padding: 0;
     }
     
     .main .block-container {
-        padding: 1.5rem;
-        max-width: 1400px;
+        padding: 1rem;
+        max-width: 100%;
     }
     
     /* Typography */
@@ -39,283 +39,241 @@ st.markdown("""
     }
     
     h1, h2, h3 {
-        color: white;
+        color: #1a1a1a;
         font-weight: 600;
     }
     
     h1 {
-        font-size: 1.75rem;
-        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
     }
     
     h2 {
-        font-size: 1.3rem;
-        margin: 1.5rem 0 1rem 0;
+        font-size: 1.2rem;
+        margin: 1rem 0 0.75rem 0;
     }
     
-    /* Input section */
-    .input-section {
-        background: #161b22;
-        padding: 1.25rem;
-        border-radius: 12px;
-        margin-bottom: 1.5rem;
-        border: 1px solid #30363d;
-    }
-    
-    .stTextInput input {
-        background: #0d1117;
-        border: 1px solid #30363d;
-        color: white;
-        border-radius: 8px;
-        padding: 0.875rem;
+    h3 {
         font-size: 1rem;
+        margin: 0.5rem 0;
     }
     
-    .stTextInput input:focus {
-        border-color: #58a6ff;
+    /* Text colors */
+    p, span, label, div {
+        color: #4a4a4a;
     }
     
-    /* Buttons */
+    /* Input fields */
+    .stTextInput input {
+        background: white;
+        border: 1px solid #d4d4d4;
+        color: #1a1a1a;
+        border-radius: 8px;
+        padding: 0.75rem;
+        font-size: 0.95rem;
+    }
+    
+    /* Buttons - yellow/green accent */
     .stButton>button {
-        background: #238636;
-        color: white;
+        background: #c3f53c;
+        color: #1a1a1a;
         border: none;
         padding: 0.75rem 1.5rem;
         border-radius: 8px;
         font-weight: 600;
         font-size: 0.95rem;
         transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
     .stButton>button:hover {
-        background: #2ea043;
+        background: #b5e634;
         transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
     
-    /* Settings button */
+    /* Secondary buttons */
     button[kind="secondary"] {
-        background: transparent !important;
-        border: 1px solid #30363d !important;
-        color: white !important;
+        background: white !important;
+        border: 1px solid #d4d4d4 !important;
+        color: #1a1a1a !important;
     }
     
-    /* Carousel container - ALWAYS horizontal scroll */
-    .carousel-container {
-        overflow-x: auto;
-        overflow-y: hidden;
-        display: flex;
-        gap: 1.25rem;
-        padding: 1rem 0 1.5rem 0;
-        scroll-snap-type: x mandatory;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
-        scrollbar-color: #30363d #161b22;
-    }
-    
-    .carousel-container::-webkit-scrollbar {
-        height: 8px;
-    }
-    
-    .carousel-container::-webkit-scrollbar-track {
-        background: #161b22;
-        border-radius: 4px;
-    }
-    
-    .carousel-container::-webkit-scrollbar-thumb {
-        background: #30363d;
-        border-radius: 4px;
-    }
-    
-    .carousel-container::-webkit-scrollbar-thumb:hover {
-        background: #484f58;
-    }
-    
-    /* Parlay cards - DraftKings style */
+    /* Parlay cards - white with shadow */
     .parlay-card {
-        min-width: 380px;
-        max-width: 380px;
-        background: #161b22;
+        background: white;
         border-radius: 12px;
-        padding: 1.25rem;
-        border: 1px solid #30363d;
-        scroll-snap-align: start;
-        flex-shrink: 0;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e8e8e8;
         transition: all 0.2s;
-        position: relative;
     }
     
     .parlay-card:hover {
-        border-color: #58a6ff;
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        transform: translateY(-2px);
     }
     
-    /* Card header */
-    .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-    
-    .card-title {
+    /* Odds badge - yellow/green */
+    .odds-badge {
+        background: #c3f53c;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
         font-size: 1.1rem;
         font-weight: 700;
-        color: white;
+        color: #1a1a1a;
+        display: inline-block;
     }
     
-    /* Odds badge */
-    .odds-badge {
-        background: #238636;
-        padding: 0.4rem 0.9rem;
-        border-radius: 6px;
-        font-size: 1rem;
-        font-weight: 700;
-        color: white;
-    }
-    
-    /* Leg items - compact */
+    /* Leg items */
     .leg-item {
-        background: #0d1117;
+        background: #fafaf8;
         padding: 0.75rem;
         border-radius: 8px;
         margin: 0.5rem 0;
-        border-left: 3px solid #30363d;
+        border-left: 3px solid #d4d4d4;
     }
     
     .leg-item strong {
-        color: white;
+        color: #1a1a1a;
         font-size: 0.9rem;
-        display: block;
-        margin-bottom: 0.25rem;
     }
     
     .leg-item small {
-        color: #8b949e;
+        color: #6b6b6b;
         font-size: 0.8rem;
     }
     
     /* Locked leg */
     .locked-leg {
-        border-left-color: #f85149;
+        background: #fff8e1;
+        border-left: 3px solid #ffa726;
     }
     
     /* Removed leg */
     .removed-leg {
-        opacity: 0.4;
-        border-left-color: #6e7681;
+        background: #ffebee;
+        border-left: 3px solid #e53935;
+        opacity: 0.6;
     }
     
-    /* Social proof */
-    .social-proof {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 1rem 0;
-        color: #f85149;
-        font-size: 0.9rem;
+    /* Bet slip */
+    .bet-slip {
+        background: #2d2d2d;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        position: sticky;
+        top: 1rem;
     }
     
-    /* Payout section */
-    .payout-section {
-        background: #0d1117;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-top: 1rem;
-        text-align: center;
+    .bet-slip h3 {
+        color: white;
+        margin-top: 0;
     }
     
-    .payout-odds {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #3fb950;
-        margin-bottom: 0.25rem;
+    .bet-slip .leg-item {
+        background: #3a3a3a;
+        border-left-color: #c3f53c;
     }
     
-    .payout-text {
-        color: #8b949e;
-        font-size: 0.85rem;
+    .bet-slip .leg-item strong {
+        color: white;
     }
     
-    /* Slide-out bet slip */
-    .bet-slip-overlay {
-        position: fixed;
-        top: 0;
-        right: -400px;
-        width: 380px;
-        height: 100vh;
-        background: #0d1117;
-        border-left: 1px solid #30363d;
-        box-shadow: -4px 0 24px rgba(0,0,0,0.6);
-        transition: right 0.3s ease;
-        z-index: 1000;
-        overflow-y: auto;
-        padding: 1.5rem;
+    .bet-slip .leg-item small {
+        color: #b0b0b0;
     }
     
-    .bet-slip-overlay.open {
-        right: 0;
-    }
-    
-    /* Collapse settings by default */
-    .settings-collapsed {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease;
-    }
-    
-    .settings-expanded {
-        max-height: 500px;
-        transition: max-height 0.3s ease;
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: white;
+        border-right: 1px solid #e8e8e8;
     }
     
     /* Selectbox */
     .stSelectbox > div > div {
-        background: #0d1117;
-        border: 1px solid #30363d;
-        color: white;
+        background: white;
+        border: 1px solid #d4d4d4;
         border-radius: 8px;
     }
     
     /* Sliders */
     .stSlider {
-        padding: 0.75rem 0;
+        padding: 0.5rem 0;
     }
     
     /* Number input */
     .stNumberInput input {
-        background: #0d1117;
-        border: 1px solid #30363d;
-        color: white;
+        background: white;
+        border: 1px solid #d4d4d4;
+        color: #1a1a1a;
         border-radius: 8px;
     }
     
-    /* Text colors */
-    p, span, label, div {
-        color: #c9d1d9;
+    /* Dividers */
+    hr {
+        margin: 1rem 0;
+        border-color: #e8e8e8;
     }
     
-    .caption {
-        color: #8b949e;
-        font-size: 0.8rem;
-    }
-    
-    /* Hide sidebar */
-    [data-testid="stSidebar"] {
-        display: none;
-    }
-    
-    /* Responsive */
+    /* Mobile styles */
     @media (max-width: 768px) {
-        .parlay-card {
-            min-width: 320px;
-            max-width: 320px;
+        .main .block-container {
+            padding: 0.5rem;
         }
         
-        .bet-slip-overlay {
-            width: 100%;
-            right: -100%;
+        [data-testid="column"] {
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
         }
+        
+        .bet-slip {
+            position: relative;
+            margin-top: 1rem;
+        }
+        
+        /* Carousel container */
+        .carousel-container {
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            display: flex;
+            gap: 1rem;
+            padding: 0.5rem 0;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .carousel-container::-webkit-scrollbar {
+            height: 4px;
+        }
+        
+        .carousel-container::-webkit-scrollbar-track {
+            background: #e8e8e8;
+            border-radius: 4px;
+        }
+        
+        .carousel-container::-webkit-scrollbar-thumb {
+            background: #c3f53c;
+            border-radius: 4px;
+        }
+        
+        .parlay-card {
+            min-width: 85%;
+            scroll-snap-align: start;
+            flex-shrink: 0;
+        }
+    }
+    
+    /* Compact spacing */
+    .element-container {
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Caption text */
+    .caption {
+        color: #6b6b6b;
+        font-size: 0.8rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -608,11 +566,12 @@ def calculate_payout(odds_str, amount):
     except:
         return 0
 
-
 # Header
 st.markdown("""
-<h1 style='color: white; margin: 0 0 0.5rem 0;'>Parlay Builder</h1>
-<p style='color: #8b949e; margin: 0 0 1.5rem 0;'>AI-powered same-game parlay generator</p>
+<div style='margin-bottom: 1.5rem;'>
+    <h1 style='color: #1a1a1a; margin: 0; font-size: 1.75rem; font-weight: 700;'>Parlay Builder</h1>
+    <p style='color: #6b6b6b; margin: 0.25rem 0 0 0; font-size: 0.9rem;'>Build your perfect same-game parlay</p>
+</div>
 """, unsafe_allow_html=True)
 
 # Load games on first run
@@ -620,288 +579,293 @@ if not st.session_state.events:
     with st.spinner("Loading NBA games..."):
         load_events()
 
-# Settings toggle state
-if 'settings_open' not in st.session_state:
-    st.session_state.settings_open = False
+# Main layout
+col1, col2 = st.columns([2, 1])
 
-# Input and Settings Section
-st.markdown("<div class='input-section'>", unsafe_allow_html=True)
+with col1:
+    # Only show errors if they exist
+    assistant_messages = [msg for msg in st.session_state.chat_history if msg['role'] == 'assistant']
+    
+    if assistant_messages:
+        for msg in assistant_messages:
+            st.error(msg['content'])
+    
+    # Input form - compact
+    with st.form(key='chat_form', clear_on_submit=True):
+        user_input = st.text_input(
+            "input",
+            placeholder="Describe your parlay (e.g., 'Knicks win big, Brunson scores lots')",
+            key='user_input',
+            label_visibility="collapsed"
+        )
+        submit = st.form_submit_button("Generate", use_container_width=True)
+        
+        if submit and user_input:
+            # Add user message
+            st.session_state.chat_history.append({
+                'role': 'user',
+                'content': user_input
+            })
+            
+            # Parse and generate
+            parsed = parse_narrative(user_input, force_event=st.session_state.selected_game)
+            
+            if not parsed:
+                st.session_state.chat_history.append({
+                    'role': 'assistant',
+                    'content': "❌ Couldn't identify the game. Please select a game from the sidebar or mention a team name."
+                })
+            else:
+                parlays = generate_parlays(
+                    parsed, 
+                    10,
+                    locked_legs=st.session_state.locked_legs,
+                    removed_legs=st.session_state.removed_legs,
+                    num_legs_range=st.session_state.num_legs_filter,
+                    odds_range=st.session_state.odds_range_filter
+                )
+                st.session_state.recommendations = parlays
+                
+                # No confirmation message - just show the parlays
+            
+            st.rerun()
+    
+    # Recommendations
+    if st.session_state.recommendations:
+        col_title, col_regen = st.columns([3, 1])
+        with col_title:
+            st.markdown(f"<h2>Parlays ({len(st.session_state.recommendations)})</h2>", unsafe_allow_html=True)
+        with col_regen:
+            if st.button("🔄 Regenerate", use_container_width=True, key="regen_btn"):
+                if st.session_state.chat_history:
+                    for msg in reversed(st.session_state.chat_history):
+                        if msg['role'] == 'user':
+                            parsed = parse_narrative(msg['content'], force_event=st.session_state.selected_game)
+                            if parsed:
+                                parlays = generate_parlays(
+                                    parsed, 
+                                    10,
+                                    locked_legs=st.session_state.locked_legs,
+                                    removed_legs=st.session_state.removed_legs,
+                                    num_legs_range=st.session_state.num_legs_filter,
+                                    odds_range=st.session_state.odds_range_filter
+                                )
+                                st.session_state.recommendations = parlays
+                                st.rerun()
+                            break
+        
+        # Mobile: Show swipe hint
+        st.markdown("""
+        <p class='caption' style='margin: 0.5rem 0; display: none;'>
+            <span style='display: inline-block;'>← Swipe to see more →</span>
+        </p>
+        <style>
+            @media (max-width: 768px) {
+                .caption span { display: inline-block !important; }
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Start carousel container
+        st.markdown("<div class='carousel-container'>", unsafe_allow_html=True)
+        
+        for parlay in st.session_state.recommendations:
+            st.markdown("<div class='parlay-card'>", unsafe_allow_html=True)
+            
+            # Header row
+            col_odds, col_info, col_select = st.columns([1.5, 2, 1.5])
+            
+            with col_odds:
+                st.markdown(f"<div class='odds-badge'>{parlay['odds_american']}</div>", unsafe_allow_html=True)
+                st.markdown(f"<p class='caption' style='margin-top: 0.25rem;'>{len(parlay['legs'])} legs • {parlay['implied_probability']}%</p>", unsafe_allow_html=True)
+            
+            with col_select:
+                if st.button("+ Add", key=f"select_{parlay['id']}", use_container_width=True):
+                    st.session_state.selected_parlay = parlay
+                    st.rerun()
+            
+            st.markdown("<hr style='margin: 0.75rem 0;'>", unsafe_allow_html=True)
+            
+            # Display legs
+            for idx, leg in enumerate(parlay['legs']):
+                is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
+                is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
+                
+                leg_class = 'locked-leg' if is_locked else ('removed-leg' if is_removed else 'leg-item')
+                
+                cols = st.columns([6, 0.7, 0.7])
+                
+                with cols[0]:
+                    st.markdown(f"""
+                    <div class='{leg_class}'>
+                        <strong>{leg['display']}</strong><br>
+                        <small>{leg['market']} • {leg['price']}</small>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with cols[1]:
+                    lock_emoji = "🔒" if is_locked else "🔓"
+                    if st.button(lock_emoji, key=f"lock_{parlay['id']}_{idx}", help="Lock"):
+                        if is_locked:
+                            st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
+                        else:
+                            if not any(l['id'] == leg['id'] for l in st.session_state.locked_legs):
+                                st.session_state.locked_legs.append(leg)
+                            st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
+                        st.rerun()
+                
+                with cols[2]:
+                    remove_emoji = "❌" if not is_removed else "↩️"
+                    if st.button(remove_emoji, key=f"remove_{parlay['id']}_{idx}", help="Remove"):
+                        if is_removed:
+                            st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
+                        else:
+                            if not any(l['id'] == leg['id'] for l in st.session_state.removed_legs):
+                                st.session_state.removed_legs.append(leg)
+                            st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
+                        st.rerun()
+            
+            st.markdown("</div>", unsafe_allow_html=True)  # Close parlay-card
+        
+        # Close carousel container
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# Top row: Game selector and settings button
-col_game, col_settings = st.columns([3, 1])
+with col2:
+    st.markdown("<div class='bet-slip'>", unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-top: 0; color: white;'>Bet Slip</h3>", unsafe_allow_html=True)
+    
+    if st.session_state.selected_parlay:
+        parlay = st.session_state.selected_parlay
+        
+        # Display number of legs and clear all
+        col_legs, col_clear = st.columns([2, 1])
+        with col_legs:
+            st.markdown(f"<p style='color: #c3f53c; margin: 0; font-weight: 600;'>{len(parlay['legs'])} Legs Multi</p>", unsafe_allow_html=True)
+        with col_clear:
+            st.markdown(f"<p style='color: #888; margin: 0; font-size: 0.85rem; cursor: pointer;'>Clear All</p>", unsafe_allow_html=True)
+        
+        st.markdown("<hr style='margin: 0.75rem 0; border-color: #444;'>", unsafe_allow_html=True)
+        
+        # Legs
+        for leg in parlay['legs']:
+            st.markdown(f"""
+            <div style='background: #3a3a3a; padding: 0.75rem; border-radius: 8px; margin: 0.5rem 0;'>
+                <strong style='color: white; font-size: 0.9rem;'>{leg['display']}</strong><br>
+                <small style='color: #b0b0b0; font-size: 0.8rem;'>{leg['market']} • {leg['price']}</small>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("<hr style='margin: 0.75rem 0; border-color: #444;'>", unsafe_allow_html=True)
+        
+        # Bet amount input
+        col_amount_label, col_amount_value = st.columns([1, 2])
+        with col_amount_label:
+            st.markdown("<p style='color: white; margin: 0.5rem 0; font-size: 0.9rem;'>Stake:</p>", unsafe_allow_html=True)
+        with col_amount_value:
+            bet_amount = st.number_input("stake", min_value=1.0, value=10.0, step=1.0, label_visibility="collapsed")
+        
+        # Odds and payout
+        profit = calculate_payout(parlay['odds_american'], bet_amount)
+        total_payout = bet_amount + profit
+        
+        st.markdown(f"""
+        <div style='display: flex; justify-content: space-between; margin: 0.75rem 0;'>
+            <span style='color: #b0b0b0; font-size: 0.9rem;'>@ {parlay['odds_american']}</span>
+            <span style='color: white; font-weight: 600; font-size: 0.9rem;'>return: ${total_payout:.2f}</span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<hr style='margin: 0.75rem 0; border-color: #444;'>", unsafe_allow_html=True)
+        
+        # Place bet button
+        if st.button("Place Multi", use_container_width=True, key="place_bet"):
+            st.success("Bet placed!")
+        
+        if st.button("Clear", use_container_width=True, key="clear_bet"):
+            st.session_state.selected_parlay = None
+            st.rerun()
+    else:
+        st.markdown("""
+        <div style='text-align: center; padding: 3rem 1rem; color: #888;'>
+            <p style='margin: 0; font-size: 0.95rem;'>Add selections to get started</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
-with col_game:
+# Sidebar
+with st.sidebar:
+    st.markdown("<h2 style='margin-bottom: 1rem; color: #1a1a1a;'>Settings</h2>", unsafe_allow_html=True)
+    
+    # Game Selector
     if st.session_state.events:
-        game_options = ["Auto-detect from description"] + [
+        st.markdown("<h3 style='font-size: 0.95rem; margin-bottom: 0.5rem; color: #1a1a1a;'>Select Game</h3>", unsafe_allow_html=True)
+        game_options = ["Auto-detect"] + [
             f"{e['teams']['away']['abbreviation']} @ {e['teams']['home']['abbreviation']}" 
             for e in st.session_state.events
         ]
         
         selected_game_idx = st.selectbox(
-            "Select Game",
+            "Game",
             range(len(game_options)),
             format_func=lambda x: game_options[x],
-            key="game_selector"
+            label_visibility="collapsed"
         )
         
         if selected_game_idx == 0:
             st.session_state.selected_game = None
         else:
             st.session_state.selected_game = st.session_state.events[selected_game_idx - 1]
-
-with col_settings:
-    if st.button("⚙️ Filters" if not st.session_state.settings_open else "✕ Close", key="settings_toggle", use_container_width=True):
-        st.session_state.settings_open = not st.session_state.settings_open
-        st.rerun()
-
-# Expandable settings
-if st.session_state.settings_open:
-    st.markdown("---")
-    col_legs, col_odds = st.columns(2)
+        
+        st.markdown("<hr>", unsafe_allow_html=True)
     
-    with col_legs:
-        st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.5rem; color: #8b949e;'>Number of Legs</p>", unsafe_allow_html=True)
-        num_legs = st.slider(
-            "legs",
-            min_value=2,
-            max_value=6,
-            value=st.session_state.num_legs_filter,
-            label_visibility="collapsed",
-            key="num_legs_slider"
-        )
-        st.session_state.num_legs_filter = num_legs
+    st.markdown("<h3 style='font-size: 0.95rem; margin-bottom: 0.75rem; color: #1a1a1a;'>Filters</h3>", unsafe_allow_html=True)
     
-    with col_odds:
-        st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.5rem; color: #8b949e;'>Odds Range</p>", unsafe_allow_html=True)
-        odds_range = st.slider(
-            "odds",
-            min_value=1.2,
-            max_value=100.0,
-            value=st.session_state.odds_range_filter,
-            step=0.5,
-            label_visibility="collapsed",
-            key="odds_range_slider"
-        )
-        st.session_state.odds_range_filter = odds_range
-    
-    # Locked/Removed info
-    if st.session_state.locked_legs or st.session_state.removed_legs:
-        st.markdown("---")
-        col_status, col_clear = st.columns([2, 1])
-        with col_status:
-            if st.session_state.locked_legs:
-                st.markdown(f"<p style='color: #f85149; margin: 0.25rem 0;'>🔒 {len(st.session_state.locked_legs)} locked</p>", unsafe_allow_html=True)
-            if st.session_state.removed_legs:
-                st.markdown(f"<p style='color: #8b949e; margin: 0.25rem 0;'>❌ {len(st.session_state.removed_legs)} removed</p>", unsafe_allow_html=True)
-        with col_clear:
-            if st.button("Clear All", key="clear_all", use_container_width=True):
-                st.session_state.locked_legs = []
-                st.session_state.removed_legs = []
-                st.rerun()
-
-st.markdown("---")
-
-# Input form
-col_input, col_submit, col_regen = st.columns([5, 1.5, 1.5])
-
-with col_input:
-    user_input = st.text_input(
-        "input",
-        placeholder="Describe your parlay (e.g., 'Knicks win big, Brunson 30+ points')",
-        key='user_input',
+    # Number of legs filter
+    st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.25rem; color: #6b6b6b;'>Number of Legs</p>", unsafe_allow_html=True)
+    num_legs = st.slider(
+        "legs",
+        min_value=2,
+        max_value=6,
+        value=(3, 5),
         label_visibility="collapsed"
     )
-
-with col_submit:
-    submit = st.button("Generate", use_container_width=True, key="gen_btn")
-
-with col_regen:
-    if st.session_state.recommendations:
-        if st.button("🔄 Regenerate", use_container_width=True, key="regen_btn"):
-            if st.session_state.chat_history:
-                for msg in reversed(st.session_state.chat_history):
-                    if msg['role'] == 'user':
-                        parsed = parse_narrative(msg['content'], force_event=st.session_state.selected_game)
-                        if parsed:
-                            parlays = generate_parlays(
-                                parsed, 
-                                10,
-                                locked_legs=st.session_state.locked_legs,
-                                removed_legs=st.session_state.removed_legs,
-                                num_legs_range=st.session_state.num_legs_filter,
-                                odds_range=st.session_state.odds_range_filter
-                            )
-                            st.session_state.recommendations = parlays
-                            st.rerun()
-                        break
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# Process input
-if submit and user_input:
-    st.session_state.chat_history.append({
-        'role': 'user',
-        'content': user_input
-    })
+    st.session_state.num_legs_filter = num_legs
     
-    parsed = parse_narrative(user_input, force_event=st.session_state.selected_game)
+    # Odds range filter
+    st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.25rem; margin-top: 0.75rem; color: #6b6b6b;'>Odds Range</p>", unsafe_allow_html=True)
+    odds_range = st.slider(
+        "odds",
+        min_value=1.2,
+        max_value=100.0,
+        value=(1.5, 50.0),
+        step=0.5,
+        label_visibility="collapsed"
+    )
+    st.session_state.odds_range_filter = odds_range
     
-    if not parsed:
-        st.session_state.chat_history.append({
-            'role': 'assistant',
-            'content': "❌ Couldn't identify the game. Please select a game or mention a team name."
-        })
-    else:
-        parlays = generate_parlays(
-            parsed, 
-            10,
-            locked_legs=st.session_state.locked_legs,
-            removed_legs=st.session_state.removed_legs,
-            num_legs_range=st.session_state.num_legs_filter,
-            odds_range=st.session_state.odds_range_filter
-        )
-        st.session_state.recommendations = parlays
+    st.markdown("<hr>", unsafe_allow_html=True)
     
-    st.rerun()
-
-# Error messages
-assistant_messages = [msg for msg in st.session_state.chat_history if msg['role'] == 'assistant']
-if assistant_messages:
-    for msg in assistant_messages:
-        st.error(msg['content'])
-
-# Parlay Carousel
-if st.session_state.recommendations:
-    st.markdown(f"<h2>Recommended Parlays ({len(st.session_state.recommendations)})</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #8b949e; margin-bottom: 1rem;'>← Scroll to see all options →</p>", unsafe_allow_html=True)
+    # Locked/Removed legs info
+    if st.session_state.locked_legs:
+        st.markdown(f"<p style='color: #f59e0b; font-size: 0.9rem; margin: 0.5rem 0;'>🔒 {len(st.session_state.locked_legs)} locked</p>", unsafe_allow_html=True)
+    if st.session_state.removed_legs:
+        st.markdown(f"<p style='color: #e53935; font-size: 0.9rem; margin: 0.5rem 0;'>❌ {len(st.session_state.removed_legs)} removed</p>", unsafe_allow_html=True)
     
-    # Carousel container
-    st.markdown("<div class='carousel-container'>", unsafe_allow_html=True)
-    
-    for parlay in st.session_state.recommendations:
-        st.markdown("<div class='parlay-card'>", unsafe_allow_html=True)
-        
-        # Card header with title and badge
-        st.markdown(f"""
-        <div class='card-header'>
-            <div class='card-title'>Parlay #{parlay['id']}</div>
-            <div class='odds-badge'>{parlay['odds_american']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Legs with lock/remove
-        for idx, leg in enumerate(parlay['legs']):
-            is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
-            is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
-            
-            leg_class = 'locked-leg' if is_locked else ('removed-leg' if is_removed else 'leg-item')
-            
-            cols = st.columns([7, 0.8, 0.8])
-            
-            with cols[0]:
-                st.markdown(f"""
-                <div class='{leg_class}'>
-                    <strong>{leg['display']}</strong><br>
-                    <small>{leg['market']} • {leg['price']}</small>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with cols[1]:
-                lock_emoji = "🔒" if is_locked else "🔓"
-                if st.button(lock_emoji, key=f"lock_{parlay['id']}_{idx}", help="Lock"):
-                    if is_locked:
-                        st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
-                    else:
-                        if not any(l['id'] == leg['id'] for l in st.session_state.locked_legs):
-                            st.session_state.locked_legs.append(leg)
-                        st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
-                    st.rerun()
-            
-            with cols[2]:
-                remove_emoji = "❌" if not is_removed else "↩️"
-                if st.button(remove_emoji, key=f"remove_{parlay['id']}_{idx}", help="Remove"):
-                    if is_removed:
-                        st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
-                    else:
-                        if not any(l['id'] == leg['id'] for l in st.session_state.removed_legs):
-                            st.session_state.removed_legs.append(leg)
-                        st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
-                    st.rerun()
-        
-        # Social proof (mock data)
-        import random
-        people_count = random.randint(50, 500)
-        st.markdown(f"""
-        <div class='social-proof'>
-            🔥 {people_count} people placed this bet
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Payout section
-        st.markdown(f"""
-        <div class='payout-section'>
-            <div class='payout-odds'>{parlay['odds_american']}</div>
-            <div class='payout-text'>$10 pays ${10 + calculate_payout(parlay['odds_american'], 10):.2f}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Add to slip button
-        if st.button("+ Add to Bet Slip", key=f"add_{parlay['id']}", use_container_width=True):
-            st.session_state.selected_parlay = parlay
-            st.rerun()
-        
-        st.markdown("</div>", unsafe_allow_html=True)  # Close parlay-card
-    
-    st.markdown("</div>", unsafe_allow_html=True)  # Close carousel
-
-# Bet Slip - Conditional slide-out
-if st.session_state.selected_parlay:
-    st.markdown("""
-    <div style='position: fixed; top: 0; right: 0; width: 380px; height: 100vh; background: #161b22; border-left: 1px solid #30363d; box-shadow: -4px 0 24px rgba(0,0,0,0.6); z-index: 1000; overflow-y: auto; padding: 1.5rem;'>
-        <h3 style='color: white; margin-top: 0;'>Bet Slip</h3>
-    """, unsafe_allow_html=True)
-    
-    parlay = st.session_state.selected_parlay
-    
-    # Header
-    col_legs, col_close = st.columns([2, 1])
-    with col_legs:
-        st.markdown(f"<p style='color: #3fb950; margin: 0; font-weight: 600;'>{len(parlay['legs'])} Legs Multi</p>", unsafe_allow_html=True)
-    with col_close:
-        if st.button("✕", key="close_slip"):
-            st.session_state.selected_parlay = None
+    if st.session_state.locked_legs or st.session_state.removed_legs:
+        if st.button("Clear All", use_container_width=True, key="clear_locks"):
+            st.session_state.locked_legs = []
+            st.session_state.removed_legs = []
             st.rerun()
     
-    st.markdown("<hr style='border-color: #30363d; margin: 0.75rem 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr>", unsafe_allow_html=True)
     
-    # Legs
-    for leg in parlay['legs']:
-        st.markdown(f"""
-        <div style='background: #0d1117; padding: 0.75rem; border-radius: 8px; margin: 0.5rem 0; border-left: 3px solid #3fb950;'>
-            <strong style='color: white; font-size: 0.9rem;'>{leg['display']}</strong><br>
-            <small style='color: #8b949e; font-size: 0.8rem;'>{leg['market']} • {leg['price']}</small>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("<hr style='border-color: #30363d; margin: 0.75rem 0;'>", unsafe_allow_html=True)
-    
-    # Bet amount
-    bet_amount = st.number_input("Stake Amount ($)", min_value=1.0, value=10.0, step=1.0, key="bet_amount_slip")
-    
-    # Payout
-    profit = calculate_payout(parlay['odds_american'], bet_amount)
-    total_payout = bet_amount + profit
-    
-    st.markdown(f"""
-    <div style='background: #0d1117; padding: 1rem; border-radius: 8px; margin: 0.75rem 0; text-align: center;'>
-        <div style='color: #8b949e; font-size: 0.85rem; margin-bottom: 0.5rem;'>@ {parlay['odds_american']}</div>
-        <div style='color: #3fb950; font-size: 1.75rem; font-weight: 700;'>${total_payout:.2f}</div>
-        <div style='color: #8b949e; font-size: 0.85rem; margin-top: 0.5rem;'>Potential Payout</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Place bet button
-    if st.button("Place Bet", use_container_width=True, key="place_bet_slip"):
-        st.success("Bet placed! (Demo mode)")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
+    if st.button("Reload Games", use_container_width=True):
+        st.session_state.events = []
+        st.session_state.selected_game = None
+        st.session_state.chat_history = []
+        st.session_state.recommendations = []
+        st.session_state.locked_legs = []
+        st.session_state.removed_legs = []
+        load_events()
+        st.rerun()
