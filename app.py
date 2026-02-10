@@ -339,7 +339,14 @@ def parse_narrative(narrative, force_event=None):
     }
 
 def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None, num_legs_range=(3, 5), odds_range=(1.2, 100.0)):
-    """Generate parlay combinations based on parsed narrative"""
+    """
+    IMPROVED: Generate diverse parlay combinations with variety in:
+    - Number of legs (randomized within range)
+    - Bet selection strategy (weighted randomization)
+    - Market diversity (spread across different bet types)
+    """
+    import random
+    
     try:
         event = parsed_data['event']
         winning_team = parsed_data['winning_team']
@@ -355,7 +362,7 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
         parlays = []
         all_odds = event.get('odds', [])
         
-        # Filter out invalid odds and removed legs
+        # Filter valid odds
         valid_odds = [o for o in all_odds 
                      if o.get('id') and o.get('market') and o.get('name') and o.get('price')
                      and o['id'] not in removed_ids]
@@ -363,97 +370,202 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
         min_legs, max_legs = num_legs_range
         min_odds, max_odds = odds_range
         
-        for i in range(count * 3):  # Generate extra, filter later
-            legs = list(locked_legs)  # Start with locked legs
+        # Categorize odds by market type for better selection
+        odds_by_market = {}
+        for odd in valid_odds:
+            market = odd.get('market', 'Other')
+            if market not in odds_by_market:
+                odds_by_market[market] = []
+            odds_by_market[market].append(odd)
+        
+        # User intent weights (higher = more likely to include)
+        intent_weights = {
+            'moneyline': 0.8 if winning_team else 0.1,
+            'spread': 0.7 if is_blowout else 0.3,
+            'total': 0.7 if (is_high_scoring or is_low_scoring) else 0.2,
+            'player_props': 0.9 if players else 0.3
+        }
+        
+        attempts = 0
+        max_attempts = count * 10  # More attempts for better variety
+        
+        while len(parlays) < count and attempts < max_attempts:
+            attempts += 1
+            
+            # KEY IMPROVEMENT #1: Randomize number of legs for each parlay
+            target_legs = random.randint(min_legs, max_legs)
+            
+            # Start with locked legs
+            legs = list(locked_legs)
             used_ids = {leg['id'] for leg in locked_legs}
+            used_markets = {leg.get('market') for leg in locked_legs}
             
-            target_legs = min_legs if len(locked_legs) == 0 else max(min_legs, len(locked_legs) + 1)
-            if target_legs > max_legs:
-                target_legs = max_legs
+            # Skip if locked legs already exceed target
+            if len(legs) > target_legs:
+                continue
             
-            # Add moneyline if team mentioned and not locked/removed
-            if winning_team and len(legs) < target_legs:
-                ml = next((o for o in valid_odds if o.get('market') == 'Moneyline' and o.get('name') == winning_team), None)
-                if ml and ml['id'] not in used_ids:
-                    legs.append({**ml, 'display': ml['name']})
-                    used_ids.add(ml['id'])
+            # KEY IMPROVEMENT #2: Build leg pool with weighted preferences
+            leg_pool = []
             
-            # Add spread if blowout
-            if is_blowout and winning_team and len(legs) < target_legs:
-                spreads = [o for o in valid_odds if o.get('market') == 'Point Spread' and winning_team in o.get('name', '')]
-                for spread in spreads:
-                    if spread.get('selection') and isinstance(spread['selection'], dict) and 'line' in spread['selection']:
-                        try:
-                            line = float(spread['selection']['line'])
-                            if abs(line) >= 7 and spread['id'] not in used_ids:
-                                legs.append({**spread, 'display': spread['name']})
-                                used_ids.add(spread['id'])
-                                break
-                        except (ValueError, TypeError):
-                            continue
+            # Moneyline (if team mentioned)
+            if winning_team and random.random() < intent_weights['moneyline']:
+                ml_odds = [o for o in odds_by_market.get('Moneyline', []) 
+                          if o.get('name') == winning_team and o['id'] not in used_ids]
+                if ml_odds:
+                    leg_pool.append({
+                        'odds': ml_odds,
+                        'priority': 10,
+                        'max_select': 1
+                    })
             
-            # Add total
-            if (is_high_scoring or is_low_scoring) and len(legs) < target_legs:
-                side = 'Over' if is_high_scoring else 'Under'
-                totals = [o for o in valid_odds if o.get('market') == 'Total Points' and side in o.get('name', '')]
-                if totals and totals[0]['id'] not in used_ids:
-                    legs.append({**totals[0], 'display': totals[0]['name']})
-                    used_ids.add(totals[0]['id'])
+            # Spread (prefer if blowout mentioned)
+            if random.random() < intent_weights['spread']:
+                spread_odds = [o for o in odds_by_market.get('Point Spread', []) 
+                              if o['id'] not in used_ids]
+                if spread_odds:
+                    # If blowout, filter for larger spreads
+                    if is_blowout and winning_team:
+                        filtered_spreads = []
+                        for o in spread_odds:
+                            if winning_team in o.get('name', ''):
+                                try:
+                                    line = o.get('selection', {}).get('line')
+                                    if line and abs(float(line)) >= 5:
+                                        filtered_spreads.append(o)
+                                except (ValueError, TypeError):
+                                    continue
+                        if filtered_spreads:
+                            spread_odds = filtered_spreads
+                    
+                    if spread_odds:
+                        leg_pool.append({
+                            'odds': spread_odds,
+                            'priority': 8 if is_blowout else 5,
+                            'max_select': 1
+                        })
             
-            # Add player props
-            for player in players:
+            # Total Points (prefer if scoring mentioned)
+            if random.random() < intent_weights['total']:
+                side = 'Over' if is_high_scoring else ('Under' if is_low_scoring else random.choice(['Over', 'Under']))
+                total_odds = [o for o in odds_by_market.get('Total Points', []) 
+                             if side in o.get('name', '') and o['id'] not in used_ids]
+                if total_odds:
+                    leg_pool.append({
+                        'odds': total_odds,
+                        'priority': 7 if (is_high_scoring or is_low_scoring) else 4,
+                        'max_select': 1
+                    })
+            
+            # Player Props (high priority if players mentioned)
+            if random.random() < intent_weights['player_props']:
+                for player in players:
+                    player_odds = [o for o in valid_odds 
+                                  if o.get('player') == player['name'] and o['id'] not in used_ids]
+                    if player_odds:
+                        leg_pool.append({
+                            'odds': player_odds,
+                            'priority': 9,
+                            'max_select': random.randint(1, 2)
+                        })
+            
+            # KEY IMPROVEMENT #3: Add variety with other market types
+            other_markets = ['First Basket', 'Player Rebounds', 'Player Assists', 
+                           'Player Threes', 'Quarter Winner', 'Half Winner',
+                           'Player Points', 'Team Total']
+            
+            for market_name in other_markets:
+                if market_name in odds_by_market and random.random() < 0.4:
+                    market_odds = [o for o in odds_by_market[market_name] if o['id'] not in used_ids]
+                    if market_odds:
+                        leg_pool.append({
+                            'odds': market_odds,
+                            'priority': random.randint(2, 6),
+                            'max_select': 1
+                        })
+            
+            # KEY IMPROVEMENT #4: Weighted random selection from pool
+            leg_pool.sort(key=lambda x: x['priority'], reverse=True)
+            
+            for pool_item in leg_pool:
                 if len(legs) >= target_legs:
                     break
-                player_odds = [o for o in valid_odds if o.get('player') == player['name']]
-                for odd in player_odds:
-                    if odd['id'] not in used_ids:
-                        legs.append({**odd, 'display': odd['name']})
-                        used_ids.add(odd['id'])
-                        break
-            
-            # Fill remaining legs randomly
-            available = [o for o in valid_odds if o['id'] not in used_ids and o.get('market') != 'Moneyline']
-            while len(legs) < target_legs and available:
-                import random
-                odd = random.choice(available)
-                legs.append({**odd, 'display': odd['name']})
-                used_ids.add(odd['id'])
-                available = [o for o in available if o['id'] != odd['id']]
-            
-            if min_legs <= len(legs) <= max_legs:
-                try:
-                    # Calculate combined odds
-                    decimal_odds = 1
-                    for leg in legs:
-                        price = leg.get('price', '+100')
-                        if price.startswith('+'):
-                            decimal_odds *= (int(price[1:]) / 100) + 1
-                        else:
-                            decimal_odds *= (100 / int(price[1:])) + 1
-                    
-                    # Filter by odds range
-                    if not (min_odds <= decimal_odds <= max_odds):
-                        continue
-                    
-                    american_odds = f"+{int((decimal_odds - 1) * 100)}" if decimal_odds >= 2 else f"-{int(100 / (decimal_odds - 1))}"
-                    implied_prob = round(1 / decimal_odds * 100, 1)
-                    
-                    parlays.append({
-                        'id': f'parlay-{i}',
-                        'legs': legs,
-                        'event_id': event['id'],
-                        'odds_american': american_odds,
-                        'implied_probability': implied_prob,
-                        'decimal_odds': decimal_odds
-                    })
-                    
-                    if len(parlays) >= count:
-                        break
-                        
-                except (ValueError, ZeroDivisionError, TypeError) as e:
+                
+                available = [o for o in pool_item['odds'] if o['id'] not in used_ids]
+                if not available:
                     continue
+                
+                num_to_select = min(pool_item['max_select'], target_legs - len(legs), len(available))
+                
+                selected = random.sample(available, num_to_select)
+                for odd in selected:
+                    legs.append({**odd, 'display': odd['name']})
+                    used_ids.add(odd['id'])
+                    used_markets.add(odd.get('market'))
+            
+            # KEY IMPROVEMENT #5: Fill remaining with diverse markets
+            if len(legs) < target_legs:
+                remaining_needed = target_legs - len(legs)
+                unused_odds = [o for o in valid_odds 
+                              if o['id'] not in used_ids 
+                              and o.get('market') != 'Moneyline']
+                
+                # Prefer odds from markets we haven't used
+                unused_from_new_markets = [o for o in unused_odds if o.get('market') not in used_markets]
+                
+                if len(unused_from_new_markets) >= remaining_needed:
+                    selected = random.sample(unused_from_new_markets, remaining_needed)
+                else:
+                    # Mix new markets with any available
+                    selected = unused_from_new_markets.copy()
+                    remaining_still_needed = remaining_needed - len(selected)
+                    other_unused = [o for o in unused_odds if o not in unused_from_new_markets]
+                    if other_unused and remaining_still_needed > 0:
+                        selected.extend(random.sample(other_unused, min(remaining_still_needed, len(other_unused))))
+                
+                for odd in selected:
+                    legs.append({**odd, 'display': odd['name']})
+                    used_ids.add(odd['id'])
+            
+            # Validate parlay
+            if len(legs) < min_legs or len(legs) > max_legs:
+                continue
+            
+            # Calculate odds
+            try:
+                decimal_odds = 1
+                for leg in legs:
+                    price = leg.get('price', '+100')
+                    if price.startswith('+'):
+                        decimal_odds *= (int(price[1:]) / 100) + 1
+                    else:
+                        decimal_odds *= (100 / abs(int(price[1:]))) + 1
+                
+                # Filter by odds range
+                if not (min_odds <= decimal_odds <= max_odds):
+                    continue
+                
+                american_odds = f"+{int((decimal_odds - 1) * 100)}" if decimal_odds >= 2 else f"-{int(100 / (decimal_odds - 1))}"
+                implied_prob = round(1 / decimal_odds * 100, 1)
+                
+                # Check for duplicates (same legs in different order)
+                leg_ids_set = frozenset(leg['id'] for leg in legs)
+                if any(frozenset(p.get('legs_ids', [])) == leg_ids_set for p in parlays):
+                    continue
+                
+                parlays.append({
+                    'id': f'parlay-{len(parlays)}',
+                    'legs': legs,
+                    'legs_ids': leg_ids_set,
+                    'event_id': event['id'],
+                    'odds_american': american_odds,
+                    'implied_probability': implied_prob,
+                    'decimal_odds': decimal_odds
+                })
+                
+            except (ValueError, ZeroDivisionError, TypeError):
+                continue
         
-        return parlays[:count]
+        return parlays
     
     except Exception as e:
         st.error(f"Error generating parlays: {str(e)}")
@@ -724,13 +836,13 @@ with st.sidebar:
     
     st.markdown("<h3 style='font-size: 0.95rem; margin-bottom: 0.75rem; color: #1a1a1a;'>Filters</h3>", unsafe_allow_html=True)
     
-    # Number of legs filter
+    # Number of legs filter - NOW 2-10
     st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.25rem; color: #6b6b6b;'>Number of Legs</p>", unsafe_allow_html=True)
     num_legs = st.slider(
         "legs",
         min_value=2,
         max_value=10,
-        value=(2, 10),
+        value=(3, 5),
         label_visibility="collapsed"
     )
     st.session_state.num_legs_filter = num_legs
@@ -739,9 +851,9 @@ with st.sidebar:
     st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.25rem; margin-top: 0.75rem; color: #6b6b6b;'>Odds Range</p>", unsafe_allow_html=True)
     odds_range = st.slider(
         "odds",
-        min_value=1.1,
+        min_value=1.2,
         max_value=100.0,
-        value=(1.5, 100.0),
+        value=(1.5, 50.0),
         step=0.5,
         label_visibility="collapsed"
     )
