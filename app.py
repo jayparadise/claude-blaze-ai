@@ -6,7 +6,6 @@ from datetime import datetime
 # Page configuration
 st.set_page_config(
     page_title="AI Parlay Builder",
-    page_icon="🎰",
     layout="wide"
 )
 
