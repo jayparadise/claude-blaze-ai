@@ -14,266 +14,170 @@ st.set_page_config(
 API_KEY = '10019992-c9b1-46b5-be2c-9e760b1c2041'
 API_URL = 'https://odds.oddsblaze.com'
 
-# Custom CSS - Bet Builder Style (Light theme with mobile support)
+# Custom CSS - iOS/App Style Overhaul
 st.markdown("""
 <style>
-    /* Hide Streamlit branding */
+    /* 1. GLOBAL APP THEME (iOS Light Mode) */
+    .stApp {
+        background-color: #F2F2F7; /* Apple System Gray 6 */
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    /* Hide Streamlit Chrome */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Main container - light cream background */
-    .main {
-        background: #f5f3ed;
-        padding: 0;
+    /* Remove default padding */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 5rem;
     }
-    
-    .main .block-container {
-        padding: 1rem;
-        max-width: 100%;
+
+    /* 2. TYPOGRAPHY */
+    h1, h2, h3, h4, p, label {
+        color: #000000 !important;
+        letter-spacing: -0.02em;
     }
-    
-    /* Typography */
-    * {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    h1 { font-weight: 800 !important; font-size: 28px !important; }
+    h2 { font-weight: 700 !important; font-size: 22px !important; }
+    small { color: #8E8E93 !important; } /* iOS Secondary Label Color */
+
+    /* 3. INPUTS & FORM ELEMENTS (iOS Rounded Style) */
+    .stTextInput input, .stNumberInput input {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E5E5EA !important;
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+        font-size: 17px !important; /* iOS Body size */
+        color: #000000 !important;
+        box-shadow: none !important;
     }
-    
-    h1, h2, h3 {
-        color: #1a1a1a;
-        font-weight: 600;
-    }
-    
-    h1 {
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
-    }
-    
-    h2 {
-        font-size: 1.2rem;
-        margin: 1rem 0 0.75rem 0;
-    }
-    
-    h3 {
-        font-size: 1rem;
-        margin: 0.5rem 0;
-    }
-    
-    /* Text colors */
-    p, span, label, div {
-        color: #4a4a4a;
-    }
-    
-    /* Input fields */
-    .stTextInput input {
-        background: white;
-        border: 1px solid #d4d4d4;
-        color: #1a1a1a;
-        border-radius: 8px;
-        padding: 0.75rem;
-        font-size: 0.95rem;
-    }
-    
-    /* Buttons - yellow/green accent */
-    .stButton>button {
-        background: #c3f53c;
-        color: #1a1a1a;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        transition: all 0.2s;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .stButton>button:hover {
-        background: #b5e634;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-    
-    /* Secondary buttons */
-    button[kind="secondary"] {
-        background: white !important;
-        border: 1px solid #d4d4d4 !important;
-        color: #1a1a1a !important;
-    }
-    
-    /* Parlay cards - white with shadow */
-    .parlay-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border: 1px solid #e8e8e8;
-        transition: all 0.2s;
-    }
-    
-    .parlay-card:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-        transform: translateY(-2px);
-    }
-    
-    /* Odds badge - yellow/green */
-    .odds-badge {
-        background: #c3f53c;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #1a1a1a;
-        display: inline-block;
-    }
-    
-    /* Leg items */
-    .leg-item {
-        background: #fafaf8;
-        padding: 0.75rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
-        border-left: 3px solid #d4d4d4;
-    }
-    
-    .leg-item strong {
-        color: #1a1a1a;
-        font-size: 0.9rem;
-    }
-    
-    .leg-item small {
-        color: #6b6b6b;
-        font-size: 0.8rem;
-    }
-    
-    /* Locked leg */
-    .locked-leg {
-        background: #fff8e1;
-        border-left: 3px solid #ffa726;
-    }
-    
-    /* Removed leg */
-    .removed-leg {
-        background: #ffebee;
-        border-left: 3px solid #e53935;
-        opacity: 0.6;
-    }
-    
-    /* Bet slip */
-    .bet-slip {
-        background: #2d2d2d;
-        border-radius: 12px;
-        padding: 1.25rem;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-        position: sticky;
-        top: 1rem;
-    }
-    
-    .bet-slip h3 {
-        color: white;
-        margin-top: 0;
-    }
-    
-    .bet-slip .leg-item {
-        background: #3a3a3a;
-        border-left-color: #c3f53c;
-    }
-    
-    .bet-slip .leg-item strong {
-        color: white;
-    }
-    
-    .bet-slip .leg-item small {
-        color: #b0b0b0;
-    }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background: white;
-        border-right: 1px solid #e8e8e8;
-    }
-    
-    /* Selectbox */
-    .stSelectbox > div > div {
-        background: white;
-        border: 1px solid #d4d4d4;
-        border-radius: 8px;
+    .stTextInput input:focus, .stNumberInput input:focus {
+        border-color: #007AFF !important; /* System Blue */
     }
     
     /* Sliders */
-    .stSlider {
-        padding: 0.5rem 0;
+    .stSlider div[data-baseweb="slider"] {
+        padding-top: 10px;
+    }
+
+    /* 4. BUTTONS (Pill Shapes) */
+    .stButton > button {
+        border-radius: 20px !important;
+        font-weight: 600 !important;
+        border: none !important;
+        padding: 10px 24px !important;
+        transition: transform 0.1s;
     }
     
-    /* Number input */
-    .stNumberInput input {
-        background: white;
-        border: 1px solid #d4d4d4;
-        color: #1a1a1a;
-        border-radius: 8px;
+    /* Primary "Generate" Button (Green) */
+    div[data-testid="stForm"] .stButton > button {
+        background-color: #34C759 !important; /* System Green */
+        color: white !important;
+        width: 100%;
+        font-size: 18px !important;
+        height: 50px;
     }
     
-    /* Dividers */
-    hr {
-        margin: 1rem 0;
-        border-color: #e8e8e8;
+    /* Secondary/Action Buttons (Gray/Blue) */
+    div[data-testid="column"] .stButton > button {
+        background-color: #E5E5EA !important;
+        color: #007AFF !important;
     }
     
-    /* Mobile styles */
+    .stButton > button:active {
+        transform: scale(0.96);
+        opacity: 0.8;
+    }
+
+    /* 5. TRUE HORIZONTAL CAROUSEL (Desktop & Mobile) */
+    .carousel-container {
+        display: flex !important;
+        overflow-x: auto !important;
+        gap: 16px !important;
+        padding: 10px 4px 30px 4px !important; /* Bottom padding for shadow */
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 20px;
+    }
+    /* Hide ugly scrollbars but keep functionality */
+    .carousel-container::-webkit-scrollbar {
+        height: 0px; 
+        background: transparent; 
+    }
+
+    /* 6. PARLAY CARDS (Fixed Width, Side-by-Side) */
+    .parlay-card {
+        flex: 0 0 320px !important; /* Fixed width prevents squashing */
+        scroll-snap-align: center;
+        background: #FFFFFF;
+        border-radius: 22px;
+        padding: 20px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* Soft Apple-like shadow */
+        border: 1px solid rgba(0,0,0,0.02);
+        position: relative;
+    }
+
+    /* 7. ODDS BADGE */
+    .odds-badge {
+        background-color: #34C759;
+        color: white;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-weight: 800;
+        font-size: 18px;
+        box-shadow: 0 4px 10px rgba(52, 199, 89, 0.3);
+    }
+
+    /* 8. LEGS & LISTS */
+    .leg-item {
+        background-color: #F2F2F7; /* Grouped Table View Background */
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 8px;
+        border-left: 4px solid #007AFF; /* Blue accent */
+    }
+    .leg-item strong { color: #000; font-size: 15px; }
+    
+    .locked-leg {
+        background-color: #FFF8E1;
+        border-left-color: #FF9500; /* System Orange */
+    }
+    .removed-leg {
+        opacity: 0.5;
+        border-left-color: #FF3B30; /* System Red */
+    }
+
+    /* 9. BET SLIP (Floating Card) */
+    .bet-slip {
+        background: #FFFFFF;
+        border-radius: 24px;
+        padding: 24px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+        position: sticky;
+        top: 2rem;
+        border: 1px solid #E5E5EA;
+    }
+    .bet-slip h3 { color: #000; }
+    .bet-slip .leg-item { 
+        background-color: #F9F9F9;
+        border-left: none; /* Cleaner look for slip */
+    }
+
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #FFFFFF;
+        border-right: 1px solid #E5E5EA;
+    }
+
+    /* Divider */
+    hr { margin: 1.5rem 0; border-color: #E5E5EA; }
+
+    /* Mobile Responsive Tweaks */
     @media (max-width: 768px) {
-        .main .block-container {
-            padding: 0.5rem;
-        }
-        
-        [data-testid="column"] {
-            min-width: 100% !important;
-            flex: 1 1 100% !important;
-        }
-        
-        .bet-slip {
-            position: relative;
-            margin-top: 1rem;
-        }
-        
-        /* Carousel container */
-        .carousel-container {
-            overflow-x: auto;
-            scroll-snap-type: x mandatory;
-            display: flex;
-            gap: 1rem;
-            padding: 0.5rem 0;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        .carousel-container::-webkit-scrollbar {
-            height: 4px;
-        }
-        
-        .carousel-container::-webkit-scrollbar-track {
-            background: #e8e8e8;
-            border-radius: 4px;
-        }
-        
-        .carousel-container::-webkit-scrollbar-thumb {
-            background: #c3f53c;
-            border-radius: 4px;
-        }
-        
-        .parlay-card {
-            min-width: 85%;
-            scroll-snap-align: start;
-            flex-shrink: 0;
-        }
-    }
-    
-    /* Compact spacing */
-    .element-container {
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Caption text */
-    .caption {
-        color: #6b6b6b;
-        font-size: 0.8rem;
+        .parlay-card { flex: 0 0 85% !important; } /* Wider cards on phone */
+        .bet-slip { position: relative; margin-top: 20px; z-index: 10; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -732,7 +636,7 @@ with col1:
 
 with col2:
     st.markdown("<div class='bet-slip'>", unsafe_allow_html=True)
-    st.markdown("<h3 style='margin-top: 0; color: white;'>Bet Slip</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-top: 0; color: #000;'>Bet Slip</h3>", unsafe_allow_html=True)
     
     if st.session_state.selected_parlay:
         parlay = st.session_state.selected_parlay
@@ -740,27 +644,27 @@ with col2:
         # Display number of legs and clear all
         col_legs, col_clear = st.columns([2, 1])
         with col_legs:
-            st.markdown(f"<p style='color: #c3f53c; margin: 0; font-weight: 600;'>{len(parlay['legs'])} Legs Multi</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color: #34C759; margin: 0; font-weight: 600;'>{len(parlay['legs'])} Legs Multi</p>", unsafe_allow_html=True)
         with col_clear:
-            st.markdown(f"<p style='color: #888; margin: 0; font-size: 0.85rem; cursor: pointer;'>Clear All</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color: #8E8E93; margin: 0; font-size: 0.85rem; cursor: pointer;'>Clear All</p>", unsafe_allow_html=True)
         
-        st.markdown("<hr style='margin: 0.75rem 0; border-color: #444;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 0.75rem 0; border-color: #E5E5EA;'>", unsafe_allow_html=True)
         
         # Legs
         for leg in parlay['legs']:
             st.markdown(f"""
-            <div style='background: #3a3a3a; padding: 0.75rem; border-radius: 8px; margin: 0.5rem 0;'>
-                <strong style='color: white; font-size: 0.9rem;'>{leg['display']}</strong><br>
-                <small style='color: #b0b0b0; font-size: 0.8rem;'>{leg['market']} • {leg['price']}</small>
+            <div style='background: #F9F9F9; padding: 0.75rem; border-radius: 8px; margin: 0.5rem 0;'>
+                <strong style='color: #000; font-size: 0.9rem;'>{leg['display']}</strong><br>
+                <small style='color: #8E8E93; font-size: 0.8rem;'>{leg['market']} • {leg['price']}</small>
             </div>
             """, unsafe_allow_html=True)
         
-        st.markdown("<hr style='margin: 0.75rem 0; border-color: #444;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 0.75rem 0; border-color: #E5E5EA;'>", unsafe_allow_html=True)
         
         # Bet amount input
         col_amount_label, col_amount_value = st.columns([1, 2])
         with col_amount_label:
-            st.markdown("<p style='color: white; margin: 0.5rem 0; font-size: 0.9rem;'>Stake:</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #000; margin: 0.5rem 0; font-size: 0.9rem;'>Stake:</p>", unsafe_allow_html=True)
         with col_amount_value:
             bet_amount = st.number_input("stake", min_value=1.0, value=10.0, step=1.0, label_visibility="collapsed")
         
@@ -770,12 +674,12 @@ with col2:
         
         st.markdown(f"""
         <div style='display: flex; justify-content: space-between; margin: 0.75rem 0;'>
-            <span style='color: #b0b0b0; font-size: 0.9rem;'>@ {parlay['odds_american']}</span>
-            <span style='color: white; font-weight: 600; font-size: 0.9rem;'>return: ${total_payout:.2f}</span>
+            <span style='color: #8E8E93; font-size: 0.9rem;'>@ {parlay['odds_american']}</span>
+            <span style='color: #000; font-weight: 600; font-size: 0.9rem;'>return: ${total_payout:.2f}</span>
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("<hr style='margin: 0.75rem 0; border-color: #444;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 0.75rem 0; border-color: #E5E5EA;'>", unsafe_allow_html=True)
         
         # Place bet button
         if st.button("Place Multi", use_container_width=True, key="place_bet"):
