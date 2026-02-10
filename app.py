@@ -14,208 +14,266 @@ st.set_page_config(
 API_KEY = '10019992-c9b1-46b5-be2c-9e760b1c2041'
 API_URL = 'https://odds.oddsblaze.com'
 
-# Custom CSS - Professional Bet Builder Style
+# Custom CSS - Bet Builder Style (Light theme with mobile support)
 st.markdown("""
 <style>
-    /* Remove default Streamlit padding */
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 0rem;
-        max-width: 100%;
-    }
-    
-    /* Main background - dark like sportsbooks */
-    .main {
-        background: #1a1d29;
-    }
-    
     /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Compact text inputs */
-    .stTextInput input {
-        background: #252936;
-        border: 1px solid #3a3f52;
-        color: white;
-        border-radius: 4px;
-        padding: 0.5rem;
-        font-size: 0.9rem;
+    /* Main container - light cream background */
+    .main {
+        background: #f5f3ed;
+        padding: 0;
     }
     
-    /* Buttons - sportsbook blue */
-    .stButton>button {
-        background: #2563eb;
-        color: white;
-        border: none;
-        padding: 0.6rem 1rem;
-        border-radius: 4px;
+    .main .block-container {
+        padding: 1rem;
+        max-width: 100%;
+    }
+    
+    /* Typography */
+    * {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    h1, h2, h3 {
+        color: #1a1a1a;
         font-weight: 600;
-        font-size: 0.9rem;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    h2 {
+        font-size: 1.2rem;
+        margin: 1rem 0 0.75rem 0;
+    }
+    
+    h3 {
+        font-size: 1rem;
+        margin: 0.5rem 0;
+    }
+    
+    /* Text colors */
+    p, span, label, div {
+        color: #4a4a4a;
+    }
+    
+    /* Input fields */
+    .stTextInput input {
+        background: white;
+        border: 1px solid #d4d4d4;
+        color: #1a1a1a;
+        border-radius: 8px;
+        padding: 0.75rem;
+        font-size: 0.95rem;
+    }
+    
+    /* Buttons - yellow/green accent */
+    .stButton>button {
+        background: #c3f53c;
+        color: #1a1a1a;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
         transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
     .stButton>button:hover {
-        background: #1d4ed8;
+        background: #b5e634;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
     
-    /* Small icon buttons */
-    .stButton>button[kind="secondary"] {
-        background: transparent;
-        border: 1px solid #3a3f52;
-        padding: 0.4rem 0.6rem;
-        font-size: 0.85rem;
+    /* Secondary buttons */
+    button[kind="secondary"] {
+        background: white !important;
+        border: 1px solid #d4d4d4 !important;
+        color: #1a1a1a !important;
     }
     
-    /* Parlay cards - compact */
+    /* Parlay cards - white with shadow */
     .parlay-card {
-        background: #252936;
-        border-radius: 6px;
-        padding: 0.75rem;
-        border: 1px solid #3a3f52;
-        margin-bottom: 0.75rem;
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e8e8e8;
         transition: all 0.2s;
     }
     
     .parlay-card:hover {
-        border-color: #2563eb;
-        background: #2a2e3d;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        transform: translateY(-2px);
     }
     
-    /* Odds badge - green */
+    /* Odds badge - yellow/green */
     .odds-badge {
-        background: #10b981;
-        padding: 0.35rem 0.75rem;
-        border-radius: 4px;
-        font-size: 1rem;
+        background: #c3f53c;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 1.1rem;
         font-weight: 700;
-        color: white;
+        color: #1a1a1a;
         display: inline-block;
     }
     
-    /* Leg items - very compact */
+    /* Leg items */
     .leg-item {
-        background: #1f2330;
-        padding: 0.5rem 0.6rem;
-        border-radius: 4px;
-        margin: 0.35rem 0;
-        border-left: 2px solid #3a3f52;
-        font-size: 0.85rem;
+        background: #fafaf8;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+        border-left: 3px solid #d4d4d4;
     }
     
     .leg-item strong {
-        color: #e5e7eb;
-        font-size: 0.85rem;
+        color: #1a1a1a;
+        font-size: 0.9rem;
     }
     
     .leg-item small {
-        color: #9ca3af;
-        font-size: 0.75rem;
+        color: #6b6b6b;
+        font-size: 0.8rem;
     }
     
     /* Locked leg */
     .locked-leg {
-        background: #422006;
-        border-left: 2px solid #f59e0b;
+        background: #fff8e1;
+        border-left: 3px solid #ffa726;
     }
     
     /* Removed leg */
     .removed-leg {
-        background: #450a0a;
-        border-left: 2px solid #dc2626;
-        opacity: 0.5;
+        background: #ffebee;
+        border-left: 3px solid #e53935;
+        opacity: 0.6;
     }
     
     /* Bet slip */
     .bet-slip {
-        background: #252936;
-        border-radius: 6px;
-        padding: 1rem;
-        border: 1px solid #3a3f52;
+        background: #2d2d2d;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         position: sticky;
         top: 1rem;
     }
     
-    /* Section headers */
-    h1, h2, h3 {
-        color: #f9fafb;
-        font-weight: 600;
+    .bet-slip h3 {
+        color: white;
+        margin-top: 0;
     }
     
-    h2 {
-        font-size: 1.3rem;
-        margin-bottom: 0.75rem;
+    .bet-slip .leg-item {
+        background: #3a3a3a;
+        border-left-color: #c3f53c;
     }
     
-    h3 {
-        font-size: 1.1rem;
-        margin-bottom: 0.5rem;
+    .bet-slip .leg-item strong {
+        color: white;
     }
     
-    /* Sidebar styling */
+    .bet-slip .leg-item small {
+        color: #b0b0b0;
+    }
+    
+    /* Sidebar */
     [data-testid="stSidebar"] {
-        background: #1f2330;
-        border-right: 1px solid #3a3f52;
-    }
-    
-    [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3 {
-        color: #f9fafb;
-        font-size: 1rem;
-        font-weight: 600;
+        background: white;
+        border-right: 1px solid #e8e8e8;
     }
     
     /* Selectbox */
     .stSelectbox > div > div {
-        background: #252936;
-        border: 1px solid #3a3f52;
-        color: white;
+        background: white;
+        border: 1px solid #d4d4d4;
+        border-radius: 8px;
     }
     
     /* Sliders */
-    .stSlider > div > div > div {
-        background: #3a3f52;
-    }
-    
-    .stSlider > div > div > div > div {
-        background: #2563eb;
+    .stSlider {
+        padding: 0.5rem 0;
     }
     
     /* Number input */
     .stNumberInput input {
-        background: #252936;
-        border: 1px solid #3a3f52;
-        color: white;
-        border-radius: 4px;
+        background: white;
+        border: 1px solid #d4d4d4;
+        color: #1a1a1a;
+        border-radius: 8px;
     }
     
     /* Dividers */
     hr {
-        margin: 0.75rem 0;
-        border-color: #3a3f52;
+        margin: 1rem 0;
+        border-color: #e8e8e8;
     }
     
-    /* Text colors */
-    p, span, label {
-        color: #d1d5db;
-        font-size: 0.9rem;
+    /* Mobile styles */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 0.5rem;
+        }
+        
+        [data-testid="column"] {
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+        }
+        
+        .bet-slip {
+            position: relative;
+            margin-top: 1rem;
+        }
+        
+        /* Carousel container */
+        .carousel-container {
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            display: flex;
+            gap: 1rem;
+            padding: 0.5rem 0;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .carousel-container::-webkit-scrollbar {
+            height: 4px;
+        }
+        
+        .carousel-container::-webkit-scrollbar-track {
+            background: #e8e8e8;
+            border-radius: 4px;
+        }
+        
+        .carousel-container::-webkit-scrollbar-thumb {
+            background: #c3f53c;
+            border-radius: 4px;
+        }
+        
+        .parlay-card {
+            min-width: 85%;
+            scroll-snap-align: start;
+            flex-shrink: 0;
+        }
     }
     
-    /* Captions */
-    .caption {
-        color: #9ca3af;
-        font-size: 0.75rem;
-    }
-    
-    /* Remove extra spacing */
+    /* Compact spacing */
     .element-container {
         margin-bottom: 0.5rem;
     }
     
-    /* Compact column gap */
-    [data-testid="column"] {
-        padding: 0 0.5rem;
+    /* Caption text */
+    .caption {
+        color: #6b6b6b;
+        font-size: 0.8rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -510,8 +568,9 @@ def calculate_payout(odds_str, amount):
 
 # Header
 st.markdown("""
-<div style='margin-bottom: 1rem;'>
-    <h1 style='color: #f9fafb; margin: 0; font-size: 1.5rem; font-weight: 600;'>Parlay Builder</h1>
+<div style='margin-bottom: 1.5rem;'>
+    <h1 style='color: #1a1a1a; margin: 0; font-size: 1.75rem; font-weight: 700;'>Parlay Builder</h1>
+    <p style='color: #6b6b6b; margin: 0.25rem 0 0 0; font-size: 0.9rem;'>Build your perfect same-game parlay</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -575,10 +634,9 @@ with col1:
     if st.session_state.recommendations:
         col_title, col_regen = st.columns([3, 1])
         with col_title:
-            st.markdown(f"<h2 style='margin-bottom: 0;'>Parlays ({len(st.session_state.recommendations)})</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2>Parlays ({len(st.session_state.recommendations)})</h2>", unsafe_allow_html=True)
         with col_regen:
             if st.button("🔄 Regenerate", use_container_width=True, key="regen_btn"):
-                # Re-parse the last user message
                 if st.session_state.chat_history:
                     for msg in reversed(st.session_state.chat_history):
                         if msg['role'] == 'user':
@@ -596,31 +654,45 @@ with col1:
                                 st.rerun()
                             break
         
+        # Mobile: Show swipe hint
+        st.markdown("""
+        <p class='caption' style='margin: 0.5rem 0; display: none;'>
+            <span style='display: inline-block;'>← Swipe to see more →</span>
+        </p>
+        <style>
+            @media (max-width: 768px) {
+                .caption span { display: inline-block !important; }
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Start carousel container
+        st.markdown("<div class='carousel-container'>", unsafe_allow_html=True)
+        
         for parlay in st.session_state.recommendations:
             st.markdown("<div class='parlay-card'>", unsafe_allow_html=True)
             
-            # Header row with odds and add button
-            col_odds, col_info, col_select = st.columns([1, 2, 1])
+            # Header row
+            col_odds, col_info, col_select = st.columns([1.5, 2, 1.5])
             
             with col_odds:
                 st.markdown(f"<div class='odds-badge'>{parlay['odds_american']}</div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='caption'>{len(parlay['legs'])} legs • {parlay['implied_probability']}%</div>", unsafe_allow_html=True)
+                st.markdown(f"<p class='caption' style='margin-top: 0.25rem;'>{len(parlay['legs'])} legs • {parlay['implied_probability']}%</p>", unsafe_allow_html=True)
             
             with col_select:
-                if st.button("Add", key=f"select_{parlay['id']}", use_container_width=True):
+                if st.button("+ Add", key=f"select_{parlay['id']}", use_container_width=True):
                     st.session_state.selected_parlay = parlay
                     st.rerun()
             
-            st.markdown("<hr style='margin: 0.5rem 0;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 0.75rem 0;'>", unsafe_allow_html=True)
             
-            # Display legs - compact layout
+            # Display legs
             for idx, leg in enumerate(parlay['legs']):
                 is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
                 is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
                 
                 leg_class = 'locked-leg' if is_locked else ('removed-leg' if is_removed else 'leg-item')
                 
-                # Create a single row with all elements
                 cols = st.columns([6, 0.7, 0.7])
                 
                 with cols[0]:
@@ -653,61 +725,60 @@ with col1:
                             st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
                         st.rerun()
             
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)  # Close parlay-card
+        
+        # Close carousel container
+        st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
     st.markdown("<div class='bet-slip'>", unsafe_allow_html=True)
-    st.markdown("<h3 style='margin-top: 0;'>Bet Slip</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-top: 0; color: white;'>Bet Slip</h3>", unsafe_allow_html=True)
     
     if st.session_state.selected_parlay:
         parlay = st.session_state.selected_parlay
         
+        # Display number of legs and clear all
+        col_legs, col_clear = st.columns([2, 1])
+        with col_legs:
+            st.markdown(f"<p style='color: #c3f53c; margin: 0; font-weight: 600;'>{len(parlay['legs'])} Legs Multi</p>", unsafe_allow_html=True)
+        with col_clear:
+            st.markdown(f"<p style='color: #888; margin: 0; font-size: 0.85rem; cursor: pointer;'>Clear All</p>", unsafe_allow_html=True)
+        
+        st.markdown("<hr style='margin: 0.75rem 0; border-color: #444;'>", unsafe_allow_html=True)
+        
+        # Legs
         for leg in parlay['legs']:
-            is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
-            leg_class = 'locked-leg' if is_locked else 'leg-item'
-            
             st.markdown(f"""
-            <div class='{leg_class}'>
-                <strong>{leg['display']}</strong><br>
-                <small>{leg['market']} • {leg['price']}</small>
+            <div style='background: #3a3a3a; padding: 0.75rem; border-radius: 8px; margin: 0.5rem 0;'>
+                <strong style='color: white; font-size: 0.9rem;'>{leg['display']}</strong><br>
+                <small style='color: #b0b0b0; font-size: 0.8rem;'>{leg['market']} • {leg['price']}</small>
             </div>
             """, unsafe_allow_html=True)
         
-        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 0.75rem 0; border-color: #444;'>", unsafe_allow_html=True)
         
-        # Odds display
-        st.markdown(f"""
-        <div style='background: #1f2330; padding: 0.75rem; border-radius: 4px; margin: 0.75rem 0;'>
-            <div style='display: flex; justify-content: space-between; align-items: center;'>
-                <span style='color: #9ca3af; font-size: 0.85rem;'>Total Odds</span>
-                <span style='font-size: 1.3rem; font-weight: 700; color: #10b981;'>{parlay['odds_american']}</span>
-            </div>
-            <div style='text-align: right; color: #6b7280; font-size: 0.75rem; margin-top: 0.25rem;'>
-                {parlay['implied_probability']}% probability
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # Bet amount input
+        col_amount_label, col_amount_value = st.columns([1, 2])
+        with col_amount_label:
+            st.markdown("<p style='color: white; margin: 0.5rem 0; font-size: 0.9rem;'>Stake:</p>", unsafe_allow_html=True)
+        with col_amount_value:
+            bet_amount = st.number_input("stake", min_value=1.0, value=10.0, step=1.0, label_visibility="collapsed")
         
-        # Bet amount
-        bet_amount = st.number_input("Bet Amount", min_value=1.0, value=10.0, step=1.0, label_visibility="collapsed")
-        
-        # Payout calculation
+        # Odds and payout
         profit = calculate_payout(parlay['odds_american'], bet_amount)
         total_payout = bet_amount + profit
         
         st.markdown(f"""
-        <div style='background: #064e3b; 
-                    padding: 0.75rem; 
-                    border-radius: 4px; 
-                    margin: 0.75rem 0;
-                    border: 1px solid #10b981;'>
-            <div style='color: #6ee7b7; font-size: 0.75rem; margin-bottom: 0.25rem;'>Potential Payout</div>
-            <div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>${total_payout:.2f}</div>
-            <div style='color: #6ee7b7; font-size: 0.75rem; margin-top: 0.25rem;'>Profit: ${profit:.2f}</div>
+        <div style='display: flex; justify-content: space-between; margin: 0.75rem 0;'>
+            <span style='color: #b0b0b0; font-size: 0.9rem;'>@ {parlay['odds_american']}</span>
+            <span style='color: white; font-weight: 600; font-size: 0.9rem;'>return: ${total_payout:.2f}</span>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("Place Bet", use_container_width=True, key="place_bet"):
+        st.markdown("<hr style='margin: 0.75rem 0; border-color: #444;'>", unsafe_allow_html=True)
+        
+        # Place bet button
+        if st.button("Place Multi", use_container_width=True, key="place_bet"):
             st.success("Bet placed!")
         
         if st.button("Clear", use_container_width=True, key="clear_bet"):
@@ -715,8 +786,8 @@ with col2:
             st.rerun()
     else:
         st.markdown("""
-        <div style='text-align: center; padding: 2rem 0; color: #6b7280;'>
-            <p style='margin: 0; font-size: 0.9rem;'>Select a parlay to begin</p>
+        <div style='text-align: center; padding: 3rem 1rem; color: #888;'>
+            <p style='margin: 0; font-size: 0.95rem;'>Add selections to get started</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -724,11 +795,11 @@ with col2:
 
 # Sidebar
 with st.sidebar:
-    st.markdown("<h2 style='margin-bottom: 1rem;'>Settings</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='margin-bottom: 1rem; color: #1a1a1a;'>Settings</h2>", unsafe_allow_html=True)
     
     # Game Selector
     if st.session_state.events:
-        st.markdown("<h3 style='font-size: 0.9rem; margin-bottom: 0.5rem;'>Game</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='font-size: 0.95rem; margin-bottom: 0.5rem; color: #1a1a1a;'>Select Game</h3>", unsafe_allow_html=True)
         game_options = ["Auto-detect"] + [
             f"{e['teams']['away']['abbreviation']} @ {e['teams']['home']['abbreviation']}" 
             for e in st.session_state.events
@@ -748,10 +819,10 @@ with st.sidebar:
         
         st.markdown("<hr>", unsafe_allow_html=True)
     
-    st.markdown("<h3 style='font-size: 0.9rem; margin-bottom: 0.5rem;'>Filters</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='font-size: 0.95rem; margin-bottom: 0.75rem; color: #1a1a1a;'>Filters</h3>", unsafe_allow_html=True)
     
     # Number of legs filter
-    st.markdown("<p style='font-size: 0.8rem; margin-bottom: 0.25rem; color: #9ca3af;'>Legs</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.25rem; color: #6b6b6b;'>Number of Legs</p>", unsafe_allow_html=True)
     num_legs = st.slider(
         "legs",
         min_value=2,
@@ -762,7 +833,7 @@ with st.sidebar:
     st.session_state.num_legs_filter = num_legs
     
     # Odds range filter
-    st.markdown("<p style='font-size: 0.8rem; margin-bottom: 0.25rem; color: #9ca3af; margin-top: 0.5rem;'>Odds Range</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.25rem; margin-top: 0.75rem; color: #6b6b6b;'>Odds Range</p>", unsafe_allow_html=True)
     odds_range = st.slider(
         "odds",
         min_value=1.2,
@@ -777,9 +848,9 @@ with st.sidebar:
     
     # Locked/Removed legs info
     if st.session_state.locked_legs:
-        st.markdown(f"<p style='color: #f59e0b; font-size: 0.85rem;'>🔒 {len(st.session_state.locked_legs)} locked</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #f59e0b; font-size: 0.9rem; margin: 0.5rem 0;'>🔒 {len(st.session_state.locked_legs)} locked</p>", unsafe_allow_html=True)
     if st.session_state.removed_legs:
-        st.markdown(f"<p style='color: #dc2626; font-size: 0.85rem;'>❌ {len(st.session_state.removed_legs)} removed</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #e53935; font-size: 0.9rem; margin: 0.5rem 0;'>❌ {len(st.session_state.removed_legs)} removed</p>", unsafe_allow_html=True)
     
     if st.session_state.locked_legs or st.session_state.removed_legs:
         if st.button("Clear All", use_container_width=True, key="clear_locks"):
