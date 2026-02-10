@@ -672,71 +672,111 @@ for msg in [m for m in st.session_state.chat_history if m['role'] == 'assistant'
 
 # HORIZONTAL CAROUSEL
 if st.session_state.recommendations:
-    # Use Streamlit columns for horizontal layout
-    cols = st.columns(len(st.session_state.recommendations))
+    # Build carousel HTML with proper horizontal scroll
+    carousel_html = """
+    <div style='
+        display: flex;
+        overflow-x: auto;
+        gap: 1rem;
+        padding: 1rem 0;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+    '>
+    """
     
-    for idx, (col, parlay) in enumerate(zip(cols, st.session_state.recommendations)):
-        with col:
-            # Card header
-            st.markdown(f"""
-            <div style='background: #161b22; border-radius: 12px; padding: 1rem; border: 1px solid #30363d;'>
-                <div style='display: flex; justify-content: space-between; margin-bottom: 0.75rem;'>
-                    <div style='font-size: 1rem; font-weight: 700; color: white;'>#{parlay['id']}</div>
-                    <div style='background: #238636; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.95rem; font-weight: 700; color: white;'>{parlay['odds_american']}</div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Legs
-            for leg in parlay['legs']:
-                is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
-                is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
-                
-                if is_locked:
-                    st.markdown(f"""
-                    <div style='background: #0d1117; padding: 0.6rem; border-radius: 6px; margin: 0.4rem 0; border-left: 3px solid #f85149;'>
-                        <strong style='color: white; font-size: 0.85rem;'>🔒 {leg['display']}</strong><br>
-                        <small style='color: #8b949e; font-size: 0.75rem;'>{leg['market']} • {leg['price']}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
-                elif is_removed:
-                    st.markdown(f"""
-                    <div style='background: #0d1117; padding: 0.6rem; border-radius: 6px; margin: 0.4rem 0; border-left: 3px solid #6e7681; opacity: 0.4;'>
-                        <strong style='color: white; font-size: 0.85rem;'>❌ {leg['display']}</strong><br>
-                        <small style='color: #8b949e; font-size: 0.75rem;'>{leg['market']} • {leg['price']}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div style='background: #0d1117; padding: 0.6rem; border-radius: 6px; margin: 0.4rem 0; border-left: 3px solid #30363d;'>
-                        <strong style='color: white; font-size: 0.85rem;'>{leg['display']}</strong><br>
-                        <small style='color: #8b949e; font-size: 0.75rem;'>{leg['market']} • {leg['price']}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
-            
-            # Payout
-            payout = 10 + calculate_payout(parlay['odds_american'], 10)
-            st.markdown(f"""
-                <div style='background: #0d1117; padding: 0.75rem; border-radius: 8px; margin: 0.75rem 0; text-align: center;'>
-                    <div style='font-size: 1.3rem; font-weight: 700; color: #3fb950; margin-bottom: 0.2rem;'>{parlay['odds_american']}</div>
-                    <div style='color: #8b949e; font-size: 0.8rem;'>$10 pays ${payout:.2f}</div>
-                </div>
+    for parlay in st.session_state.recommendations:
+        # Build card HTML
+        card_html = f"""
+        <div style='
+            min-width: 280px;
+            max-width: 280px;
+            flex-shrink: 0;
+            background: #161b22;
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid #30363d;
+            scroll-snap-align: start;
+        '>
+            <div style='display: flex; justify-content: space-between; margin-bottom: 0.75rem;'>
+                <div style='font-size: 1rem; font-weight: 700; color: white;'>#{parlay['id']}</div>
+                <div style='background: #238636; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.95rem; font-weight: 700; color: white;'>{parlay['odds_american']}</div>
             </div>
-            """, unsafe_allow_html=True)
+        """
+        
+        # Add legs
+        for leg in parlay['legs']:
+            is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
+            is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
             
-            # Add to slip button
-            if st.button(f"+ Add", key=f"add_{parlay['id']}", use_container_width=True):
+            if is_locked:
+                border_color = "#f85149"
+                icon = "🔒 "
+                opacity = "1"
+            elif is_removed:
+                border_color = "#6e7681"
+                icon = "❌ "
+                opacity = "0.4"
+            else:
+                border_color = "#30363d"
+                icon = ""
+                opacity = "1"
+            
+            card_html += f"""
+            <div style='
+                background: #0d1117;
+                padding: 0.6rem;
+                border-radius: 6px;
+                margin: 0.4rem 0;
+                border-left: 3px solid {border_color};
+                opacity: {opacity};
+            '>
+                <strong style='color: white; font-size: 0.85rem;'>{icon}{leg['display']}</strong><br>
+                <small style='color: #8b949e; font-size: 0.75rem;'>{leg['market']} • {leg['price']}</small>
+            </div>
+            """
+        
+        # Add payout
+        payout = 10 + calculate_payout(parlay['odds_american'], 10)
+        card_html += f"""
+            <div style='
+                background: #0d1117;
+                padding: 0.75rem;
+                border-radius: 8px;
+                margin: 0.75rem 0;
+                text-align: center;
+            '>
+                <div style='font-size: 1.3rem; font-weight: 700; color: #3fb950;'>{parlay['odds_american']}</div>
+                <div style='color: #8b949e; font-size: 0.8rem;'>$10 pays ${payout:.2f}</div>
+            </div>
+        </div>
+        """
+        
+        carousel_html += card_html
+    
+    carousel_html += "</div>"
+    
+    # Render carousel
+    st.markdown(carousel_html, unsafe_allow_html=True)
+    
+    # Interactive buttons below carousel
+    button_cols = st.columns(len(st.session_state.recommendations))
+    
+    for idx, (col, parlay) in enumerate(zip(button_cols, st.session_state.recommendations)):
+        with col:
+            # Add button
+            if st.button("+ Add", key=f"add_{parlay['id']}", use_container_width=True):
                 st.session_state.selected_parlay = parlay
                 st.rerun()
             
-            # Lock/Remove controls in expander
-            with st.expander("⚙️ Lock/Remove", expanded=False):
+            # Lock/Remove controls
+            with st.expander("⚙️", expanded=False):
                 for leg_idx, leg in enumerate(parlay['legs']):
                     is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
                     is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
                     
-                    leg_cols = st.columns([4, 1, 1])
+                    leg_cols = st.columns([3, 1, 1])
                     with leg_cols[0]:
-                        st.caption(leg['display'][:25])
+                        st.caption(leg['display'][:20])
                     with leg_cols[1]:
                         if st.button("🔒" if is_locked else "🔓", key=f"lock_{parlay['id']}_{leg_idx}"):
                             if is_locked:
