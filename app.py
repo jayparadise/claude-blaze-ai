@@ -582,9 +582,6 @@ st.markdown("<h1 style='margin: 0 0 0.5rem 0;'>Parlay Builder</h1>", unsafe_allo
 # Load games on first run
 if not st.session_state.events:
     with st.spinner("Loading NBA games..."):
-# Load games on first run
-if not st.session_state.events:
-    with st.spinner("Loading NBA games..."):
         load_events()
 
 # Input and Filters Section
