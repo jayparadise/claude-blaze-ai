@@ -604,7 +604,7 @@ if st.session_state.events:
         for e in st.session_state.events
     ]
     
-    selected_game_idx = st.selectbox(
+    selected_game_idx = st.selectbox()
         "Select Game",
         range(len(game_options)),
         format_func=lambda x: game_options[x],
