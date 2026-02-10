@@ -200,16 +200,6 @@ st.markdown("""
         border-left-color: #6e7681;
     }
     
-    /* Social proof */
-    .social-proof {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0.75rem 0;
-        color: #f85149;
-        font-size: 0.85rem;
-    }
-    
     /* Payout section */
     .payout-section {
         background: #0d1117;
@@ -597,17 +587,12 @@ if not st.session_state.events:
 # Input and Filters Section
 st.markdown("<div class='input-section'>", unsafe_allow_html=True)
 
-# Row 1: Game selector
-
-# Header
-st.markdown("<h1 style='margin: 0 0 0.5rem 0;'>Parlay Builder</h1>", unsafe_allow_html=True)
-
 # Load games on first run
 if not st.session_state.events:
     with st.spinner("Loading NBA games..."):
         load_events()
 
-# Input and Filters Section - Always visible, compact
+# Input and Filters Section
 st.markdown("<div class='input-section'>", unsafe_allow_html=True)
 
 # Game selector
@@ -633,7 +618,7 @@ if st.session_state.events:
 col_legs, col_odds = st.columns(2)
 with col_legs:
     st.markdown("<p style='font-size: 0.85rem; margin: 0.5rem 0 0.25rem 0;'>Legs</p>", unsafe_allow_html=True)
-    num_legs = st.slider("legs", 2, 6, st.session_state.num_legs_filter, label_visibility="collapsed", key="num_legs")
+    num_legs = st.slider("legs", 2, 10, st.session_state.num_legs_filter, label_visibility="collapsed", key="num_legs")
     st.session_state.num_legs_filter = num_legs
 with col_odds:
     st.markdown("<p style='font-size: 0.85rem; margin: 0.5rem 0 0.25rem 0;'>Odds</p>", unsafe_allow_html=True)
@@ -704,9 +689,8 @@ if st.session_state.recommendations:
         html += f"<div class='parlay-card'><div class='card-header'><div class='card-title'>#{parlay['id']}</div><div class='odds-badge'>{parlay['odds_american']}</div></div>"
         for leg in parlay['legs']:
             html += f"<div class='leg-item'><strong>{leg['display']}</strong><br><small>{leg['market']} • {leg['price']}</small></div>"
-        people = random.randint(50, 500)
         payout = 10 + calculate_payout(parlay['odds_american'], 10)
-        html += f"<div class='social-proof'>🔥 {people} placed this</div><div class='payout-section'><div class='payout-odds'>{parlay['odds_american']}</div><div class='payout-text'>$10 pays ${payout:.2f}</div></div></div>"
+        html += f"<div class='payout-section'><div class='payout-odds'>{parlay['odds_american']}</div><div class='payout-text'>$10 pays ${payout:.2f}</div></div></div>"
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
     
