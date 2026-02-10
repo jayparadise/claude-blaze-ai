@@ -672,71 +672,73 @@ for msg in [m for m in st.session_state.chat_history if m['role'] == 'assistant'
 
 # HORIZONTAL CAROUSEL
 if st.session_state.recommendations:
-    # Build HTML carousel
-    html = "<div class='carousel-container'>"
-    for parlay in st.session_state.recommendations:
-        html += f"""
-        <div class='parlay-card'>
-            <div class='card-header'>
-                <div class='card-title'>#{parlay['id']}</div>
-                <div class='odds-badge'>{parlay['odds_american']}</div>
-            </div>
-        """
-        
-        # Add legs
-        for leg in parlay['legs']:
-            is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
-            is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
-            leg_class = 'locked-leg' if is_locked else ('removed-leg' if is_removed else 'leg-item')
-            
-            lock_icon = "🔒" if is_locked else ""
-            remove_icon = "❌" if is_removed else ""
-            
-            html += f"""
-            <div class='{leg_class}'>
-                <strong>{lock_icon}{remove_icon} {leg['display']}</strong><br>
-                <small>{leg['market']} • {leg['price']}</small>
-            </div>
-            """
-        
-        # Payout
-        payout = 10 + calculate_payout(parlay['odds_american'], 10)
-        html += f"""
-            <div class='payout-section' style='cursor: pointer;'>
-                <div class='payout-odds'>{parlay['odds_american']}</div>
-                <div class='payout-text'>$10 pays ${payout:.2f}</div>
-            </div>
-        </div>
-        """
+    # Use Streamlit columns for horizontal layout
+    cols = st.columns(len(st.session_state.recommendations))
     
-    html += "</div>"
-    st.markdown(html, unsafe_allow_html=True)
-    
-    # Interactive controls below carousel
-    st.markdown("<div style='margin-top: 1rem;'>", unsafe_allow_html=True)
-    
-    # Create columns for each parlay's controls
-    control_cols = st.columns(len(st.session_state.recommendations))
-    
-    for idx, (col, parlay) in enumerate(zip(control_cols, st.session_state.recommendations)):
+    for idx, (col, parlay) in enumerate(zip(cols, st.session_state.recommendations)):
         with col:
+            # Card header
+            st.markdown(f"""
+            <div style='background: #161b22; border-radius: 12px; padding: 1rem; border: 1px solid #30363d;'>
+                <div style='display: flex; justify-content: space-between; margin-bottom: 0.75rem;'>
+                    <div style='font-size: 1rem; font-weight: 700; color: white;'>#{parlay['id']}</div>
+                    <div style='background: #238636; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.95rem; font-weight: 700; color: white;'>{parlay['odds_american']}</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Legs
+            for leg in parlay['legs']:
+                is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
+                is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
+                
+                if is_locked:
+                    st.markdown(f"""
+                    <div style='background: #0d1117; padding: 0.6rem; border-radius: 6px; margin: 0.4rem 0; border-left: 3px solid #f85149;'>
+                        <strong style='color: white; font-size: 0.85rem;'>🔒 {leg['display']}</strong><br>
+                        <small style='color: #8b949e; font-size: 0.75rem;'>{leg['market']} • {leg['price']}</small>
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif is_removed:
+                    st.markdown(f"""
+                    <div style='background: #0d1117; padding: 0.6rem; border-radius: 6px; margin: 0.4rem 0; border-left: 3px solid #6e7681; opacity: 0.4;'>
+                        <strong style='color: white; font-size: 0.85rem;'>❌ {leg['display']}</strong><br>
+                        <small style='color: #8b949e; font-size: 0.75rem;'>{leg['market']} • {leg['price']}</small>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style='background: #0d1117; padding: 0.6rem; border-radius: 6px; margin: 0.4rem 0; border-left: 3px solid #30363d;'>
+                        <strong style='color: white; font-size: 0.85rem;'>{leg['display']}</strong><br>
+                        <small style='color: #8b949e; font-size: 0.75rem;'>{leg['market']} • {leg['price']}</small>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # Payout
+            payout = 10 + calculate_payout(parlay['odds_american'], 10)
+            st.markdown(f"""
+                <div style='background: #0d1117; padding: 0.75rem; border-radius: 8px; margin: 0.75rem 0; text-align: center;'>
+                    <div style='font-size: 1.3rem; font-weight: 700; color: #3fb950; margin-bottom: 0.2rem;'>{parlay['odds_american']}</div>
+                    <div style='color: #8b949e; font-size: 0.8rem;'>$10 pays ${payout:.2f}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
             # Add to slip button
-            if st.button(f"#{parlay['id']}", key=f"add_{parlay['id']}", use_container_width=True):
+            if st.button(f"+ Add", key=f"add_{parlay['id']}", use_container_width=True):
                 st.session_state.selected_parlay = parlay
                 st.rerun()
             
-            # Lock/Remove buttons for each leg
-            with st.expander(f"⚙️", expanded=False):
+            # Lock/Remove controls in expander
+            with st.expander("⚙️ Lock/Remove", expanded=False):
                 for leg_idx, leg in enumerate(parlay['legs']):
                     is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
                     is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
                     
-                    leg_control_cols = st.columns([3, 1, 1])
-                    with leg_control_cols[0]:
-                        st.caption(f"{leg['display'][:20]}...")
-                    with leg_control_cols[1]:
-                        lock_emoji = "🔒" if is_locked else "🔓"
-                        if st.button(lock_emoji, key=f"lock_{parlay['id']}_{leg_idx}"):
+                    leg_cols = st.columns([4, 1, 1])
+                    with leg_cols[0]:
+                        st.caption(leg['display'][:25])
+                    with leg_cols[1]:
+                        if st.button("🔒" if is_locked else "🔓", key=f"lock_{parlay['id']}_{leg_idx}"):
                             if is_locked:
                                 st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
                             else:
@@ -744,9 +746,8 @@ if st.session_state.recommendations:
                                     st.session_state.locked_legs.append(leg)
                                 st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
                             st.rerun()
-                    with leg_control_cols[2]:
-                        remove_emoji = "❌" if not is_removed else "↩️"
-                        if st.button(remove_emoji, key=f"remove_{parlay['id']}_{leg_idx}"):
+                    with leg_cols[2]:
+                        if st.button("❌" if not is_removed else "↩️", key=f"remove_{parlay['id']}_{leg_idx}"):
                             if is_removed:
                                 st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
                             else:
@@ -754,8 +755,6 @@ if st.session_state.recommendations:
                                     st.session_state.removed_legs.append(leg)
                                 st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
                             st.rerun()
-    
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # BET SLIP OVERLAY
 if st.session_state.selected_parlay:
