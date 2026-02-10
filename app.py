@@ -729,8 +729,8 @@ with st.sidebar:
     num_legs = st.slider(
         "legs",
         min_value=2,
-        max_value=6,
-        value=(3, 5),
+        max_value=10,
+        value=(2, 10),
         label_visibility="collapsed"
     )
     st.session_state.num_legs_filter = num_legs
@@ -739,9 +739,9 @@ with st.sidebar:
     st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.25rem; margin-top: 0.75rem; color: #6b6b6b;'>Odds Range</p>", unsafe_allow_html=True)
     odds_range = st.slider(
         "odds",
-        min_value=1.2,
+        min_value=1.1,
         max_value=100.0,
-        value=(1.5, 50.0),
+        value=(1.5, 100.0),
         step=0.5,
         label_visibility="collapsed"
     )
