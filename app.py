@@ -338,12 +338,56 @@ def parse_narrative(narrative, force_event=None):
         'players': list(unique_players)
     }
 
+def is_conflicting_bet(leg1, leg2):
+    """
+    Check if two legs conflict with each other (opposite sides of same market).
+    Returns True if they conflict and cannot be in the same parlay.
+    """
+    # Same market type check
+    market1 = leg1.get('market', '')
+    market2 = leg2.get('market', '')
+    
+    # Point Spread conflict: Can't have both sides (e.g., Celtics -12.5 AND Bulls +12.5)
+    if market1 == 'Point Spread' and market2 == 'Point Spread':
+        return True  # Only one spread allowed per game
+    
+    # Moneyline conflict: Can't have both teams to win
+    if market1 == 'Moneyline' and market2 == 'Moneyline':
+        return True  # Only one moneyline allowed per game
+    
+    # Total Points conflict: Can't have both Over AND Under same total
+    if market1 == 'Total Points' and market2 == 'Total Points':
+        name1 = leg1.get('name', '').lower()
+        name2 = leg2.get('name', '').lower()
+        # Check if one is Over and other is Under
+        if ('over' in name1 and 'under' in name2) or ('under' in name1 and 'over' in name2):
+            return True
+    
+    # Team Total conflict: Can't have both Over and Under for same team
+    if market1 == 'Team Total' and market2 == 'Team Total':
+        name1 = leg1.get('name', '').lower()
+        name2 = leg2.get('name', '').lower()
+        if ('over' in name1 and 'under' in name2) or ('under' in name1 and 'over' in name2):
+            # Check if same team
+            team1 = name1.replace('over', '').replace('under', '').strip()
+            team2 = name2.replace('over', '').replace('under', '').strip()
+            if team1 == team2:
+                return True
+    
+    # Quarter/Half Winner conflicts
+    if 'Winner' in market1 and 'Winner' in market2:
+        if market1 == market2:  # Same quarter/half
+            return True
+    
+    return False
+
 def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None, num_legs_range=(3, 5), odds_range=(1.2, 100.0)):
     """
-    IMPROVED: Generate diverse parlay combinations with variety in:
+    IMPROVED: Generate diverse parlay combinations with:
     - Number of legs (randomized within range)
     - Bet selection strategy (weighted randomization)
     - Market diversity (spread across different bet types)
+    - Conflict detection (no opposite sides of same market)
     """
     import random
     
@@ -370,6 +414,11 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
         min_legs, max_legs = num_legs_range
         min_odds, max_odds = odds_range
         
+        # CRITICAL FIX: Validate that we have enough legs available
+        if len(valid_odds) < min_legs:
+            st.error(f"Not enough betting options available. Found {len(valid_odds)}, need at least {min_legs}")
+            return []
+        
         # Categorize odds by market type for better selection
         odds_by_market = {}
         for odd in valid_odds:
@@ -378,7 +427,7 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                 odds_by_market[market] = []
             odds_by_market[market].append(odd)
         
-        # User intent weights (higher = more likely to include)
+        # User intent weights
         intent_weights = {
             'moneyline': 0.8 if winning_team else 0.1,
             'spread': 0.7 if is_blowout else 0.3,
@@ -387,12 +436,12 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
         }
         
         attempts = 0
-        max_attempts = count * 10  # More attempts for better variety
+        max_attempts = count * 15  # More attempts to find valid parlays
         
         while len(parlays) < count and attempts < max_attempts:
             attempts += 1
             
-            # KEY IMPROVEMENT #1: Randomize number of legs for each parlay
+            # Randomize number of legs for each parlay - RESPECTING FILTER
             target_legs = random.randint(min_legs, max_legs)
             
             # Start with locked legs
@@ -404,7 +453,7 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
             if len(legs) > target_legs:
                 continue
             
-            # KEY IMPROVEMENT #2: Build leg pool with weighted preferences
+            # Build leg pool with weighted preferences
             leg_pool = []
             
             # Moneyline (if team mentioned)
@@ -419,11 +468,10 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                     })
             
             # Spread (prefer if blowout mentioned)
-            if random.random() < intent_weights['spread']:
+            if random.random() < intent_weights['spread'] and 'Point Spread' not in used_markets:
                 spread_odds = [o for o in odds_by_market.get('Point Spread', []) 
                               if o['id'] not in used_ids]
                 if spread_odds:
-                    # If blowout, filter for larger spreads
                     if is_blowout and winning_team:
                         filtered_spreads = []
                         for o in spread_odds:
@@ -445,7 +493,7 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                         })
             
             # Total Points (prefer if scoring mentioned)
-            if random.random() < intent_weights['total']:
+            if random.random() < intent_weights['total'] and 'Total Points' not in used_markets:
                 side = 'Over' if is_high_scoring else ('Under' if is_low_scoring else random.choice(['Over', 'Under']))
                 total_odds = [o for o in odds_by_market.get('Total Points', []) 
                              if side in o.get('name', '') and o['id'] not in used_ids]
@@ -456,7 +504,7 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                         'max_select': 1
                     })
             
-            # Player Props (high priority if players mentioned)
+            # Player Props
             if random.random() < intent_weights['player_props']:
                 for player in players:
                     player_odds = [o for o in valid_odds 
@@ -468,13 +516,17 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                             'max_select': random.randint(1, 2)
                         })
             
-            # KEY IMPROVEMENT #3: Add variety with other market types
+            # Add variety with other market types
             other_markets = ['First Basket', 'Player Rebounds', 'Player Assists', 
                            'Player Threes', 'Quarter Winner', 'Half Winner',
                            'Player Points', 'Team Total']
             
             for market_name in other_markets:
                 if market_name in odds_by_market and random.random() < 0.4:
+                    # Skip if we already used a conflicting market
+                    if market_name in ['Quarter Winner', 'Half Winner'] and market_name in used_markets:
+                        continue
+                    
                     market_odds = [o for o in odds_by_market[market_name] if o['id'] not in used_ids]
                     if market_odds:
                         leg_pool.append({
@@ -483,7 +535,7 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                             'max_select': 1
                         })
             
-            # KEY IMPROVEMENT #4: Weighted random selection from pool
+            # Weighted random selection from pool
             leg_pool.sort(key=lambda x: x['priority'], reverse=True)
             
             for pool_item in leg_pool:
@@ -498,11 +550,19 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                 
                 selected = random.sample(available, num_to_select)
                 for odd in selected:
-                    legs.append({**odd, 'display': odd['name']})
-                    used_ids.add(odd['id'])
-                    used_markets.add(odd.get('market'))
+                    # CRITICAL FIX: Check for conflicts before adding
+                    has_conflict = False
+                    for existing_leg in legs:
+                        if is_conflicting_bet(existing_leg, odd):
+                            has_conflict = True
+                            break
+                    
+                    if not has_conflict:
+                        legs.append({**odd, 'display': odd['name']})
+                        used_ids.add(odd['id'])
+                        used_markets.add(odd.get('market'))
             
-            # KEY IMPROVEMENT #5: Fill remaining with diverse markets
+            # Fill remaining with diverse markets
             if len(legs) < target_legs:
                 remaining_needed = target_legs - len(legs)
                 unused_odds = [o for o in valid_odds 
@@ -512,23 +572,30 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                 # Prefer odds from markets we haven't used
                 unused_from_new_markets = [o for o in unused_odds if o.get('market') not in used_markets]
                 
-                if len(unused_from_new_markets) >= remaining_needed:
-                    selected = random.sample(unused_from_new_markets, remaining_needed)
-                else:
-                    # Mix new markets with any available
-                    selected = unused_from_new_markets.copy()
-                    remaining_still_needed = remaining_needed - len(selected)
-                    other_unused = [o for o in unused_odds if o not in unused_from_new_markets]
-                    if other_unused and remaining_still_needed > 0:
-                        selected.extend(random.sample(other_unused, min(remaining_still_needed, len(other_unused))))
+                # Filter out conflicting bets
+                available_to_add = []
+                for odd in (unused_from_new_markets if unused_from_new_markets else unused_odds):
+                    has_conflict = False
+                    for existing_leg in legs:
+                        if is_conflicting_bet(existing_leg, odd):
+                            has_conflict = True
+                            break
+                    if not has_conflict:
+                        available_to_add.append(odd)
                 
-                for odd in selected:
-                    legs.append({**odd, 'display': odd['name']})
-                    used_ids.add(odd['id'])
+                if available_to_add:
+                    num_to_add = min(remaining_needed, len(available_to_add))
+                    selected = random.sample(available_to_add, num_to_add)
+                    for odd in selected:
+                        legs.append({**odd, 'display': odd['name']})
+                        used_ids.add(odd['id'])
             
-            # Validate parlay
-            if len(legs) < min_legs or len(legs) > max_legs:
-                continue
+            # CRITICAL FIX: Validate parlay meets minimum leg requirement
+            if len(legs) < min_legs:
+                continue  # Skip this parlay, try again
+            
+            if len(legs) > max_legs:
+                continue  # Skip this parlay, try again
             
             # Calculate odds
             try:
@@ -547,7 +614,7 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                 american_odds = f"+{int((decimal_odds - 1) * 100)}" if decimal_odds >= 2 else f"-{int(100 / (decimal_odds - 1))}"
                 implied_prob = round(1 / decimal_odds * 100, 1)
                 
-                # Check for duplicates (same legs in different order)
+                # Check for duplicates
                 leg_ids_set = frozenset(leg['id'] for leg in legs)
                 if any(frozenset(p.get('legs_ids', [])) == leg_ids_set for p in parlays):
                     continue
@@ -564,6 +631,10 @@ def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None,
                 
             except (ValueError, ZeroDivisionError, TypeError):
                 continue
+        
+        # CRITICAL FIX: If we didn't get enough parlays, let user know
+        if len(parlays) < count:
+            st.warning(f"Could only generate {len(parlays)} valid parlays with current filters. Try adjusting your leg count or odds range.")
         
         return parlays
     
