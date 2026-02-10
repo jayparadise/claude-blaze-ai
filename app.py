@@ -598,16 +598,6 @@ if not st.session_state.events:
 st.markdown("<div class='input-section'>", unsafe_allow_html=True)
 
 # Row 1: Game selector
-if st.session_state.events:
-    game_options = ["Auto-detect from description"] + [
-        f"{e['teams']['away']['abbreviation']} @ {e['teams']['home']['abbreviation']}" 
-        for e in st.session_state.events
-    ]
-    
-    selected_game_idx = st.selectbox(
-        "Select Game",
-        range(len(game_options)),
-        format_func=lambda x: game_options[x],
 
 # Header
 st.markdown("<h1 style='margin: 0 0 0.5rem 0;'>Parlay Builder</h1>", unsafe_allow_html=True)
