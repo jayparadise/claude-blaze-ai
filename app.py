@@ -146,14 +146,21 @@ def parse_narrative(narrative):
     # Find player mentions
     players = []
     for odd in mentioned_event.get('odds', []):
-        if odd.get('player'):
-            player_name = odd['player'].lower()
-            if player_name in lower:
-                has_positive = any(word in lower for word in ['score', 'big game', 'lots', 'great'])
-                players.append({
-                    'name': odd['player'],
-                    'sentiment': 'positive' if has_positive else 'neutral'
-                })
+        # Make sure the odd has a player field and it's not None
+        if odd.get('player') and isinstance(odd.get('player'), str):
+            try:
+                player_name = odd['player'].lower()
+                # Check if any part of the player name is mentioned
+                player_parts = player_name.split()
+                if any(part in lower for part in player_parts) or player_name in lower:
+                    has_positive = any(word in lower for word in ['score', 'big game', 'lots', 'great'])
+                    players.append({
+                        'name': odd['player'],
+                        'sentiment': 'positive' if has_positive else 'neutral'
+                    })
+            except (AttributeError, TypeError):
+                # Skip if there's any issue with the player name
+                continue
     
     # Remove duplicates
     unique_players = {p['name']: p for p in players}.values()
@@ -169,89 +176,104 @@ def parse_narrative(narrative):
 
 def generate_parlays(parsed_data, count=10):
     """Generate parlay combinations based on parsed narrative"""
-    event = parsed_data['event']
-    winning_team = parsed_data['winning_team']
-    is_high_scoring = parsed_data['is_high_scoring']
-    is_low_scoring = parsed_data['is_low_scoring']
-    is_blowout = parsed_data['is_blowout']
-    players = parsed_data['players']
-    
-    parlays = []
-    all_odds = event.get('odds', [])
-    
-    for i in range(count):
-        legs = []
-        used_ids = set()
+    try:
+        event = parsed_data['event']
+        winning_team = parsed_data['winning_team']
+        is_high_scoring = parsed_data['is_high_scoring']
+        is_low_scoring = parsed_data['is_low_scoring']
+        is_blowout = parsed_data['is_blowout']
+        players = parsed_data['players']
         
-        # Add moneyline if team mentioned
-        if winning_team:
-            ml = next((o for o in all_odds if o['market'] == 'Moneyline' and o['name'] == winning_team), None)
-            if ml and ml['id'] not in used_ids:
-                legs.append({**ml, 'display': ml['name']})
-                used_ids.add(ml['id'])
+        parlays = []
+        all_odds = event.get('odds', [])
         
-        # Add spread if blowout
-        if is_blowout and winning_team and len(legs) < 5:
-            spreads = [o for o in all_odds if o['market'] == 'Point Spread' and winning_team in o['name']]
-            # Find large spreads
-            for spread in spreads:
-                if 'selection' in spread and 'line' in spread['selection']:
-                    line = spread['selection']['line']
-                    if abs(line) >= 7 and spread['id'] not in used_ids:
-                        legs.append({**spread, 'display': spread['name']})
-                        used_ids.add(spread['id'])
-                        break
+        # Filter out invalid odds early
+        valid_odds = [o for o in all_odds if o.get('id') and o.get('market') and o.get('name') and o.get('price')]
         
-        # Add total
-        if (is_high_scoring or is_low_scoring) and len(legs) < 5:
-            side = 'Over' if is_high_scoring else 'Under'
-            totals = [o for o in all_odds if o['market'] == 'Total Points' and side in o['name']]
-            if totals and totals[0]['id'] not in used_ids:
-                legs.append({**totals[0], 'display': totals[0]['name']})
-                used_ids.add(totals[0]['id'])
-        
-        # Add player props
-        for player in players:
-            if len(legs) >= 5:
-                break
-            player_odds = [o for o in all_odds if o.get('player') == player['name']]
-            for odd in player_odds:
-                if odd['id'] not in used_ids:
-                    legs.append({**odd, 'display': odd['name']})
-                    used_ids.add(odd['id'])
+        for i in range(count):
+            legs = []
+            used_ids = set()
+            
+            # Add moneyline if team mentioned
+            if winning_team:
+                ml = next((o for o in valid_odds if o.get('market') == 'Moneyline' and o.get('name') == winning_team), None)
+                if ml and ml['id'] not in used_ids:
+                    legs.append({**ml, 'display': ml['name']})
+                    used_ids.add(ml['id'])
+            
+            # Add spread if blowout
+            if is_blowout and winning_team and len(legs) < 5:
+                spreads = [o for o in valid_odds if o.get('market') == 'Point Spread' and winning_team in o.get('name', '')]
+                # Find large spreads
+                for spread in spreads:
+                    if spread.get('selection') and isinstance(spread['selection'], dict) and 'line' in spread['selection']:
+                        try:
+                            line = float(spread['selection']['line'])
+                            if abs(line) >= 7 and spread['id'] not in used_ids:
+                                legs.append({**spread, 'display': spread['name']})
+                                used_ids.add(spread['id'])
+                                break
+                        except (ValueError, TypeError):
+                            continue
+            
+            # Add total
+            if (is_high_scoring or is_low_scoring) and len(legs) < 5:
+                side = 'Over' if is_high_scoring else 'Under'
+                totals = [o for o in valid_odds if o.get('market') == 'Total Points' and side in o.get('name', '')]
+                if totals and totals[0]['id'] not in used_ids:
+                    legs.append({**totals[0], 'display': totals[0]['name']})
+                    used_ids.add(totals[0]['id'])
+            
+            # Add player props
+            for player in players:
+                if len(legs) >= 5:
                     break
-        
-        # Fill remaining legs randomly
-        available = [o for o in all_odds if o['id'] not in used_ids and o['market'] != 'Moneyline']
-        while len(legs) < 4 and available:
-            import random
-            odd = random.choice(available)
-            legs.append({**odd, 'display': odd['name']})
-            used_ids.add(odd['id'])
-            available = [o for o in available if o['id'] != odd['id']]
-        
-        if len(legs) >= 3:
-            # Calculate combined odds
-            decimal_odds = 1
-            for leg in legs:
-                price = leg['price']
-                if price.startswith('+'):
-                    decimal_odds *= (int(price[1:]) / 100) + 1
-                else:
-                    decimal_odds *= (100 / int(price[1:])) + 1
+                player_odds = [o for o in valid_odds if o.get('player') == player['name']]
+                for odd in player_odds:
+                    if odd['id'] not in used_ids:
+                        legs.append({**odd, 'display': odd['name']})
+                        used_ids.add(odd['id'])
+                        break
             
-            american_odds = f"+{int((decimal_odds - 1) * 100)}" if decimal_odds >= 2 else f"-{int(100 / (decimal_odds - 1))}"
-            implied_prob = round(1 / decimal_odds * 100, 1)
+            # Fill remaining legs randomly
+            available = [o for o in valid_odds if o['id'] not in used_ids and o.get('market') != 'Moneyline']
+            while len(legs) < 4 and available:
+                import random
+                odd = random.choice(available)
+                legs.append({**odd, 'display': odd['name']})
+                used_ids.add(odd['id'])
+                available = [o for o in available if o['id'] != odd['id']]
             
-            parlays.append({
-                'id': f'parlay-{i}',
-                'legs': legs,
-                'event_id': event['id'],
-                'odds_american': american_odds,
-                'implied_probability': implied_prob
-            })
+            if len(legs) >= 3:
+                try:
+                    # Calculate combined odds
+                    decimal_odds = 1
+                    for leg in legs:
+                        price = leg.get('price', '+100')
+                        if price.startswith('+'):
+                            decimal_odds *= (int(price[1:]) / 100) + 1
+                        else:
+                            decimal_odds *= (100 / int(price[1:])) + 1
+                    
+                    american_odds = f"+{int((decimal_odds - 1) * 100)}" if decimal_odds >= 2 else f"-{int(100 / (decimal_odds - 1))}"
+                    implied_prob = round(1 / decimal_odds * 100, 1)
+                    
+                    parlays.append({
+                        'id': f'parlay-{i}',
+                        'legs': legs,
+                        'event_id': event['id'],
+                        'odds_american': american_odds,
+                        'implied_probability': implied_prob
+                    })
+                except (ValueError, ZeroDivisionError, TypeError) as e:
+                    # Skip this parlay if odds calculation fails
+                    continue
+        
+        return parlays
     
-    return parlays
+    except Exception as e:
+        st.error(f"Error generating parlays: {str(e)}")
+        return []
 
 def calculate_payout(odds_str, amount):
     """Calculate potential payout from American odds"""
