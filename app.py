@@ -116,8 +116,15 @@ def parse_narrative(narrative):
         home_abbrev = event['teams']['home']['abbreviation'].lower()
         away_abbrev = event['teams']['away']['abbreviation'].lower()
         
+        # Split team names into words to match partial names (e.g., "Knicks" from "New York Knicks")
+        home_words = home_name.split()
+        away_words = away_name.split()
+        
+        # Check full names, abbreviations, and individual words
         if (home_name in lower or away_name in lower or 
-            home_abbrev in lower or away_abbrev in lower):
+            home_abbrev in lower or away_abbrev in lower or
+            any(word in lower for word in home_words if len(word) > 3) or
+            any(word in lower for word in away_words if len(word) > 3)):
             mentioned_event = event
             break
     
@@ -130,13 +137,41 @@ def parse_narrative(narrative):
     has_win = any(word in lower for word in win_words)
     
     if has_win:
-        home_name = mentioned_event['teams']['home']['name'].lower()
-        away_name = mentioned_event['teams']['away']['name'].lower()
+        home_name = mentioned_event['teams']['home']['name']
+        away_name = mentioned_event['teams']['away']['name']
+        home_name_lower = home_name.lower()
+        away_name_lower = away_name.lower()
+        home_abbrev = mentioned_event['teams']['home']['abbreviation'].lower()
+        away_abbrev = mentioned_event['teams']['away']['abbreviation'].lower()
         
-        if home_name in lower:
-            winning_team = mentioned_event['teams']['home']['name']
-        elif away_name in lower:
-            winning_team = mentioned_event['teams']['away']['name']
+        # Split into words to check partial matches
+        home_words = home_name_lower.split()
+        away_words = away_name_lower.split()
+        
+        # Check if home team is mentioned (full name, abbreviation, or any significant word)
+        home_mentioned = (home_name_lower in lower or 
+                         home_abbrev in lower or 
+                         any(word in lower for word in home_words if len(word) > 3))
+        
+        # Check if away team is mentioned
+        away_mentioned = (away_name_lower in lower or 
+                         away_abbrev in lower or 
+                         any(word in lower for word in away_words if len(word) > 3))
+        
+        if home_mentioned and not away_mentioned:
+            winning_team = home_name
+        elif away_mentioned and not home_mentioned:
+            winning_team = away_name
+        elif home_mentioned and away_mentioned:
+            # If both mentioned, the one closer to a win word wins
+            # Simple heuristic: first one mentioned
+            for word in lower.split():
+                if word in [w.lower() for w in home_words if len(w) > 3] + [home_abbrev]:
+                    winning_team = home_name
+                    break
+                elif word in [w.lower() for w in away_words if len(w) > 3] + [away_abbrev]:
+                    winning_team = away_name
+                    break
     
     # Identify sentiment
     is_high_scoring = any(word in lower for word in ['high scoring', 'lots of points', 'shootout', 'offensive'])
