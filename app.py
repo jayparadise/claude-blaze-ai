@@ -153,6 +153,8 @@ st.markdown("""
 # Initialize session state
 if 'events' not in st.session_state:
     st.session_state.events = []
+if 'selected_game' not in st.session_state:
+    st.session_state.selected_game = None
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'recommendations' not in st.session_state:
@@ -188,44 +190,41 @@ def load_events():
         
         st.session_state.events = data['events']
         
-        games_list = [f"{e['teams']['away']['name']} @ {e['teams']['home']['name']}" 
-                     for e in data['events']]
-        
-        st.session_state.chat_history.append({
-            'role': 'assistant',
-            'content': f"✅ Loaded {len(data['events'])} NBA game(s)!\n\n📊 Available: {', '.join(games_list)}\n\nDescribe your parlay idea!"
-        })
-        
+        # Don't add confirmation message to chat
         return True
         
     except Exception as e:
         st.error(f"Error loading games: {str(e)}")
         return False
 
-def parse_narrative(narrative):
+def parse_narrative(narrative, force_event=None):
     """Parse user narrative to understand betting intent"""
     lower = narrative.lower()
     events = st.session_state.events
     
-    # Find mentioned event
-    mentioned_event = None
-    for event in events:
-        home_name = event['teams']['home']['name'].lower()
-        away_name = event['teams']['away']['name'].lower()
-        home_abbrev = event['teams']['home']['abbreviation'].lower()
-        away_abbrev = event['teams']['away']['abbreviation'].lower()
-        
-        # Split team names into words to match partial names (e.g., "Knicks" from "New York Knicks")
-        home_words = home_name.split()
-        away_words = away_name.split()
-        
-        # Check full names, abbreviations, and individual words
-        if (home_name in lower or away_name in lower or 
-            home_abbrev in lower or away_abbrev in lower or
-            any(word in lower for word in home_words if len(word) > 3) or
-            any(word in lower for word in away_words if len(word) > 3)):
-            mentioned_event = event
-            break
+    # Use forced event if provided (from game selector)
+    if force_event:
+        mentioned_event = force_event
+    else:
+        # Find mentioned event from narrative
+        mentioned_event = None
+        for event in events:
+            home_name = event['teams']['home']['name'].lower()
+            away_name = event['teams']['away']['name'].lower()
+            home_abbrev = event['teams']['home']['abbreviation'].lower()
+            away_abbrev = event['teams']['away']['abbreviation'].lower()
+            
+            # Split team names into words to match partial names
+            home_words = home_name.split()
+            away_words = away_name.split()
+            
+            # Check full names, abbreviations, and individual words
+            if (home_name in lower or away_name in lower or 
+                home_abbrev in lower or away_abbrev in lower or
+                any(word in lower for word in home_words if len(word) > 3) or
+                any(word in lower for word in away_words if len(word) > 3)):
+                mentioned_event = event
+                break
     
     if not mentioned_event:
         return None
@@ -447,9 +446,6 @@ st.markdown("""
             margin-bottom: 1.5rem;
             box-shadow: 0 4px 12px rgba(30, 136, 229, 0.2);'>
     <h1 style='color: white; margin: 0; font-size: 2rem;'>🎰 AI Parlay Builder</h1>
-    <p style='color: rgba(255,255,255,0.9); margin: 0.5rem 0 0 0; font-size: 0.9rem;'>
-        Powered by DraftKings • Real-time odds from OddsBlaze API
-    </p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -462,33 +458,31 @@ if not st.session_state.events:
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.subheader("💬 Chat")
+    st.subheader("💬 Build Your Parlay")
     
-    # Chat history
-    chat_container = st.container()
-    with chat_container:
-        for msg in st.session_state.chat_history:
-            if msg['role'] == 'user':
-                st.markdown(f"""
-                <div class='chat-user'>
-                    <strong>You:</strong> {msg['content']}
-                </div>
-                """, unsafe_allow_html=True)
-            else:
+    # Only show chat if there are errors/assistant messages
+    assistant_messages = [msg for msg in st.session_state.chat_history if msg['role'] == 'assistant']
+    
+    if assistant_messages:
+        chat_container = st.container()
+        with chat_container:
+            for msg in assistant_messages:
                 st.markdown(f"""
                 <div class='chat-assistant'>
                     {msg['content']}
                 </div>
                 """, unsafe_allow_html=True)
+        st.divider()
     
     # Input
     with st.form(key='chat_form', clear_on_submit=True):
         user_input = st.text_input(
             "Describe your parlay",
-            placeholder="e.g., 'Knicks will win big and Brunson scores lots of points'",
-            key='user_input'
+            placeholder="e.g., 'Knicks win big and Brunson scores lots'",
+            key='user_input',
+            label_visibility="collapsed"
         )
-        submit = st.form_submit_button("Send")
+        submit = st.form_submit_button("Generate Parlays", use_container_width=True)
         
         if submit and user_input:
             # Add user message
@@ -498,14 +492,12 @@ with col1:
             })
             
             # Parse and generate
-            parsed = parse_narrative(user_input)
+            parsed = parse_narrative(user_input, force_event=st.session_state.selected_game)
             
             if not parsed:
-                games_list = [f"{e['teams']['away']['name']} @ {e['teams']['home']['name']}" 
-                             for e in st.session_state.events]
                 st.session_state.chat_history.append({
                     'role': 'assistant',
-                    'content': f"❌ Couldn't identify the game.\n\nAvailable: {', '.join(games_list)}"
+                    'content': "❌ Couldn't identify the game. Please select a game from the sidebar or mention a team name."
                 })
             else:
                 parlays = generate_parlays(
@@ -518,11 +510,7 @@ with col1:
                 )
                 st.session_state.recommendations = parlays
                 
-                game_str = f"{parsed['event']['teams']['away']['name']} @ {parsed['event']['teams']['home']['name']}"
-                st.session_state.chat_history.append({
-                    'role': 'assistant',
-                    'content': f"✅ Generated {len(parlays)} parlays for {game_str}! Check them out below."
-                })
+                # No confirmation message - just show the parlays
             
             st.rerun()
     
@@ -531,32 +519,32 @@ with col1:
         st.subheader(f"🎯 Recommended Parlays ({len(st.session_state.recommendations)})")
         
         # Regenerate button
-        col_regen1, col_regen2 = st.columns([3, 1])
-        with col_regen2:
-            if st.button("🔄 Regenerate", use_container_width=True):
-                # Get the last parsed data from chat
-                if st.session_state.chat_history:
-                    # Re-parse the last user message
-                    for msg in reversed(st.session_state.chat_history):
-                        if msg['role'] == 'user':
-                            parsed = parse_narrative(msg['content'])
-                            if parsed:
-                                parlays = generate_parlays(
-                                    parsed, 
-                                    10,
-                                    locked_legs=st.session_state.locked_legs,
-                                    removed_legs=st.session_state.removed_legs,
-                                    num_legs_range=st.session_state.num_legs_filter,
-                                    odds_range=st.session_state.odds_range_filter
-                                )
-                                st.session_state.recommendations = parlays
-                                st.rerun()
-                            break
+        if st.button("🔄 Regenerate with Filters", use_container_width=True):
+            # Re-parse the last user message
+            if st.session_state.chat_history:
+                for msg in reversed(st.session_state.chat_history):
+                    if msg['role'] == 'user':
+                        parsed = parse_narrative(msg['content'], force_event=st.session_state.selected_game)
+                        if parsed:
+                            parlays = generate_parlays(
+                                parsed, 
+                                10,
+                                locked_legs=st.session_state.locked_legs,
+                                removed_legs=st.session_state.removed_legs,
+                                num_legs_range=st.session_state.num_legs_filter,
+                                odds_range=st.session_state.odds_range_filter
+                            )
+                            st.session_state.recommendations = parlays
+                            st.rerun()
+                        break
+        
+        st.divider()
         
         for parlay in st.session_state.recommendations:
             with st.container():
                 st.markdown("<div class='parlay-card'>", unsafe_allow_html=True)
                 
+                # Header row with odds and add button
                 col_odds, col_info, col_select = st.columns([1, 2, 1])
                 
                 with col_odds:
@@ -568,16 +556,19 @@ with col1:
                         st.session_state.selected_parlay = parlay
                         st.rerun()
                 
-                # Display legs with lock/remove buttons
+                st.markdown("---")
+                
+                # Display legs - NO nested columns, just buttons in same row
                 for idx, leg in enumerate(parlay['legs']):
-                    leg_col1, leg_col2 = st.columns([4, 1])
+                    is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
+                    is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
                     
-                    with leg_col1:
-                        is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
-                        is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
-                        
-                        leg_class = 'locked-leg' if is_locked else ('removed-leg' if is_removed else 'leg-item')
-                        
+                    leg_class = 'locked-leg' if is_locked else ('removed-leg' if is_removed else 'leg-item')
+                    
+                    # Create a single row with all elements
+                    cols = st.columns([5, 1, 1])
+                    
+                    with cols[0]:
                         st.markdown(f"""
                         <div class='{leg_class}'>
                             <strong>{leg['display']}</strong><br>
@@ -585,31 +576,29 @@ with col1:
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    with leg_col2:
-                        btn_col1, btn_col2 = st.columns(2)
-                        with btn_col1:
-                            lock_emoji = "🔓" if not is_locked else "🔒"
-                            if st.button(lock_emoji, key=f"lock_{parlay['id']}_{idx}", help="Lock this leg"):
-                                if is_locked:
-                                    st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
-                                else:
-                                    if not any(l['id'] == leg['id'] for l in st.session_state.locked_legs):
-                                        st.session_state.locked_legs.append(leg)
-                                    # Also remove from removed if it was there
-                                    st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
-                                st.rerun()
-                        
-                        with btn_col2:
-                            remove_emoji = "❌" if not is_removed else "↩️"
-                            if st.button(remove_emoji, key=f"remove_{parlay['id']}_{idx}", help="Remove this leg"):
-                                if is_removed:
-                                    st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
-                                else:
-                                    if not any(l['id'] == leg['id'] for l in st.session_state.removed_legs):
-                                        st.session_state.removed_legs.append(leg)
-                                    # Also remove from locked if it was there
-                                    st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
-                                st.rerun()
+                    with cols[1]:
+                        lock_emoji = "🔓" if not is_locked else "🔒"
+                        if st.button(lock_emoji, key=f"lock_{parlay['id']}_{idx}", help="Lock/unlock this leg"):
+                            if is_locked:
+                                st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
+                            else:
+                                if not any(l['id'] == leg['id'] for l in st.session_state.locked_legs):
+                                    st.session_state.locked_legs.append(leg)
+                                # Remove from removed if it was there
+                                st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
+                            st.rerun()
+                    
+                    with cols[2]:
+                        remove_emoji = "❌" if not is_removed else "↩️"
+                        if st.button(remove_emoji, key=f"remove_{parlay['id']}_{idx}", help="Remove/restore this leg"):
+                            if is_removed:
+                                st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
+                            else:
+                                if not any(l['id'] == leg['id'] for l in st.session_state.removed_legs):
+                                    st.session_state.removed_legs.append(leg)
+                                # Remove from locked if it was there
+                                st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
+                            st.rerun()
                 
                 st.markdown("</div>", unsafe_allow_html=True)
                 st.divider()
@@ -698,6 +687,29 @@ with col2:
 with st.sidebar:
     st.header("⚙️ Settings")
     
+    # Game Selector
+    if st.session_state.events:
+        st.subheader("🏀 Select Game")
+        game_options = ["Auto-detect from text"] + [
+            f"{e['teams']['away']['abbreviation']} @ {e['teams']['home']['abbreviation']}" 
+            for e in st.session_state.events
+        ]
+        
+        selected_game_idx = st.selectbox(
+            "Game",
+            range(len(game_options)),
+            format_func=lambda x: game_options[x],
+            help="Select a specific game or let AI detect from your message",
+            label_visibility="collapsed"
+        )
+        
+        if selected_game_idx == 0:
+            st.session_state.selected_game = None
+        else:
+            st.session_state.selected_game = st.session_state.events[selected_game_idx - 1]
+        
+        st.divider()
+    
     st.subheader("🎯 Parlay Filters")
     
     # Number of legs filter
@@ -741,31 +753,23 @@ with st.sidebar:
     
     st.divider()
     
-    st.header("ℹ️ About")
+    st.header("ℹ️ How to Use")
     st.markdown("""
-    This AI Parlay Builder helps you create same-game parlays using natural language.
-    
-    **How to use:**
-    1. Describe your betting thesis
-    2. Adjust filters if needed
-    3. Lock/remove legs to refine
-    4. Regenerate for new options
-    
-    **Example queries:**
-    - "Knicks will win in a blowout"
-    - "High scoring game, Brunson goes off"
-    - "Pacers win and Haliburton has a big game"
+    1. Select a game (or let AI detect)
+    2. Describe your betting thesis
+    3. Adjust filters as needed
+    4. Lock/remove legs to refine
+    5. Regenerate for new options
     """)
     
     st.divider()
     
     if st.button("🔄 Reload Games", use_container_width=True):
         st.session_state.events = []
+        st.session_state.selected_game = None
         st.session_state.chat_history = []
         st.session_state.recommendations = []
         st.session_state.locked_legs = []
         st.session_state.removed_legs = []
         load_events()
         st.rerun()
-    
-    st.caption(f"Games loaded: {len(st.session_state.events)}")
