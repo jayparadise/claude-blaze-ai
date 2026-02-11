@@ -355,7 +355,6 @@ defaults = {
     'odds_range_filter': (1.5, 50.0),
     'sportsbook': DEFAULT_SPORTSBOOK,
     'league': DEFAULT_LEAGUE,
-    'sgp_prices': {},  # parlay_id -> sgp price
 }
 for key, val in defaults.items():
     if key not in st.session_state:
@@ -435,6 +434,53 @@ def fetch_sgp_price(sgp_tokens, sportsbook=None):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# HELPERS
+# ═══════════════════════════════════════════════════════════════════════
+
+def get_player_name(player_field):
+    """Extract a clean player name string from the odds 'player' field.
+    It might be a plain string OR a dict like {'id':..., 'name':'Jaylen Brown', ...}."""
+    if not player_field:
+        return None
+    if isinstance(player_field, str):
+        return player_field
+    if isinstance(player_field, dict):
+        return player_field.get('name') or player_field.get('id', '')
+    return str(player_field)
+
+
+def has_conflicts(legs):
+    """Check if a set of legs contains logical contradictions.
+    Returns True if there IS a conflict (parlay should be rejected)."""
+
+    # Track by group to detect opposing sides of the same market line
+    groups_seen = {}  # group_id -> leg
+    for leg in legs:
+        group = leg.get('group')
+        if not group:
+            continue
+        if group in groups_seen:
+            # Two legs from the same group = conflict (e.g. Over 220.5 AND Under 220.5)
+            return True
+        groups_seen[group] = leg
+
+    # Check for both-teams-win on moneyline
+    ml_teams = set()
+    for leg in legs:
+        market = (leg.get('market') or '').lower()
+        if 'moneyline' in market:
+            name = (leg.get('name') or '').lower()
+            if name in ml_teams:
+                continue  # duplicate, not conflict
+            # If we already have a different moneyline team, conflict
+            if ml_teams and name not in ml_teams:
+                return True
+            ml_teams.add(name)
+
+    return False
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # NARRATIVE PARSER
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -486,17 +532,17 @@ def parse_narrative(narrative, force_event=None):
     is_low = any(w in lower for w in ['low scoring', 'defensive', 'grind', 'under'])
     is_blowout = any(w in lower for w in ['blowout', 'dominate', 'destroy', 'crush'])
 
-    # Player detection
+    # Player detection — handle player as string OR dict
     players = []
     seen_players = set()
     for odd in target.get('odds', []):
-        player = odd.get('player')
-        if player and isinstance(player, str) and player not in seen_players:
-            parts = player.lower().split()
-            if any(p in lower for p in parts):
+        player_name = get_player_name(odd.get('player'))
+        if player_name and player_name not in seen_players:
+            parts = player_name.lower().split()
+            if any(p in lower for p in parts if len(p) > 2):
                 has_pos = any(w in lower for w in ['score', 'big game', 'lots', 'great', 'over'])
-                players.append({'name': player, 'sentiment': 'positive' if has_pos else 'neutral'})
-                seen_players.add(player)
+                players.append({'name': player_name, 'sentiment': 'positive' if has_pos else 'neutral'})
+                seen_players.add(player_name)
 
     return {
         'game': target,
@@ -514,7 +560,8 @@ def parse_narrative(narrative, force_event=None):
 
 def generate_parlays(parsed, count=8, locked_legs=None, removed_legs=None,
                      num_legs_range=(3, 5), odds_range=(1.5, 50.0)):
-    """Generate diverse parlay combinations, then fetch real SGP prices."""
+    """Generate diverse parlay combinations, then fetch real SGP prices.
+    Only returns parlays that the sportsbook actually priced."""
     game = parsed['game']
     winning_team = parsed['winning_team']
     is_high = parsed['is_high_scoring']
@@ -531,12 +578,13 @@ def generate_parlays(parsed, count=8, locked_legs=None, removed_legs=None,
                   if o.get('id') and o.get('market') and o.get('name') and o.get('price')
                   and o['id'] not in removed_ids]
 
-    # We need odds with sgp tokens for SGP pricing
+    # Only use odds that have SGP tokens — we won't show unpriced parlays
     sgp_odds = [o for o in valid_odds if o.get('sgp')]
+    if not sgp_odds:
+        # No SGP tokens available at all — can't build real parlays
+        return []
 
-    # If no sgp tokens at all, fall back to all valid odds (prices will be estimated)
-    use_odds = sgp_odds if sgp_odds else valid_odds
-    has_sgp_tokens = len(sgp_odds) > 0
+    use_odds = sgp_odds
 
     # Group by market
     by_market = {}
@@ -545,11 +593,13 @@ def generate_parlays(parsed, count=8, locked_legs=None, removed_legs=None,
         by_market.setdefault(m, []).append(o)
 
     min_legs, max_legs = num_legs_range
-    parlays = []
+    candidates_list = []  # collect candidate parlays before pricing
     attempts = 0
-    max_attempts = count * 20
+    # Generate more candidates than needed since some will fail SGP pricing
+    target_candidates = count * 4
+    max_attempts = target_candidates * 10
 
-    while len(parlays) < count and attempts < max_attempts:
+    while len(candidates_list) < target_candidates and attempts < max_attempts:
         attempts += 1
         target_legs = random.randint(min_legs, max_legs)
         legs = list(locked_legs)
@@ -559,32 +609,33 @@ def generate_parlays(parsed, count=8, locked_legs=None, removed_legs=None,
             continue
 
         # Build weighted candidate pool
-        candidates = []
+        pool = []
 
         # Moneyline for predicted winner
         if winning_team:
             ml = [o for o in by_market.get('Moneyline', [])
                   if winning_team.lower() in o.get('name', '').lower() and o['id'] not in used_ids]
             if ml and random.random() < 0.8:
-                candidates.append(random.choice(ml))
+                pool.append(random.choice(ml))
 
         # Spread
         spreads = [o for o in by_market.get('Point Spread', []) if o['id'] not in used_ids]
         if spreads and random.random() < (0.7 if is_blowout else 0.35):
-            candidates.append(random.choice(spreads))
+            pool.append(random.choice(spreads))
 
         # Totals
         side = 'Over' if is_high else ('Under' if is_low else random.choice(['Over', 'Under']))
         totals = [o for o in by_market.get('Total Points', [])
                   if side in o.get('name', '') and o['id'] not in used_ids]
         if totals and random.random() < (0.7 if (is_high or is_low) else 0.3):
-            candidates.append(random.choice(totals))
+            pool.append(random.choice(totals))
 
         # Player props for mentioned players
         for p in players:
-            p_odds = [o for o in use_odds if o.get('player') == p['name'] and o['id'] not in used_ids]
+            p_odds = [o for o in use_odds
+                      if get_player_name(o.get('player')) == p['name'] and o['id'] not in used_ids]
             if p_odds and random.random() < 0.85:
-                candidates.append(random.choice(p_odds))
+                pool.append(random.choice(p_odds))
 
         # Random props for variety
         prop_markets = [m for m in by_market if m not in ('Moneyline', 'Point Spread', 'Total Points')]
@@ -592,92 +643,74 @@ def generate_parlays(parsed, count=8, locked_legs=None, removed_legs=None,
         for m in prop_markets[:4]:
             opts = [o for o in by_market[m] if o['id'] not in used_ids]
             if opts and random.random() < 0.4:
-                candidates.append(random.choice(opts))
+                pool.append(random.choice(opts))
 
-        # De-dup and trim
-        for c in candidates:
+        # De-dup and add to legs (with conflict check after each add)
+        for c in pool:
             if c['id'] not in used_ids and len(legs) < target_legs:
-                legs.append(c)
-                used_ids.add(c['id'])
+                test_legs = legs + [c]
+                if not has_conflicts(test_legs):
+                    legs.append(c)
+                    used_ids.add(c['id'])
 
-        # Fill remaining
+        # Fill remaining from random sgp odds
         if len(legs) < target_legs:
-            pool = [o for o in use_odds if o['id'] not in used_ids]
-            random.shuffle(pool)
-            for o in pool:
+            remaining = [o for o in use_odds if o['id'] not in used_ids]
+            random.shuffle(remaining)
+            for o in remaining:
                 if len(legs) >= target_legs:
                     break
-                legs.append(o)
-                used_ids.add(o['id'])
+                test_legs = legs + [o]
+                if not has_conflicts(test_legs):
+                    legs.append(o)
+                    used_ids.add(o['id'])
 
         if not (min_legs <= len(legs) <= max_legs):
             continue
 
+        # Final conflict check on the full set
+        if has_conflicts(legs):
+            continue
+
         # Duplicate check
         leg_set = frozenset(l['id'] for l in legs)
-        if any(frozenset(p['leg_ids']) == leg_set for p in parlays):
+        if any(frozenset(p['leg_ids']) == leg_set for p in candidates_list):
             continue
 
-        # Collect sgp tokens for this parlay
-        sgp_tokens = [l.get('sgp') for l in legs if l.get('sgp')]
-
-        # Fallback: calculate naive odds (will be replaced by SGP price)
-        naive_dec = 1.0
-        try:
-            for l in legs:
-                price = l.get('price', '+100')
-                if isinstance(price, str):
-                    if price.startswith('+'):
-                        naive_dec *= (int(price[1:]) / 100) + 1
-                    elif price.startswith('-'):
-                        naive_dec *= (100 / abs(int(price[1:]))) + 1
-                    else:
-                        naive_dec *= float(price)
-                else:
-                    naive_dec *= float(price)
-        except (ValueError, ZeroDivisionError):
+        # All legs must have sgp tokens
+        sgp_tokens = [l['sgp'] for l in legs if l.get('sgp')]
+        if len(sgp_tokens) != len(legs):
             continue
 
-        parlays.append({
-            'id': f'parlay-{len(parlays)}',
+        candidates_list.append({
             'legs': legs,
             'leg_ids': leg_set,
             'sgp_tokens': sgp_tokens,
-            'has_sgp': len(sgp_tokens) == len(legs) and has_sgp_tokens,
-            'naive_decimal_odds': round(naive_dec, 2),
-            'sgp_price': None,       # filled in after API call
-            'sgp_status': 'pending',  # pending | success | error | no_tokens
         })
 
-    # ── Fetch SGP prices from OddsBlaze ──
-    for p in parlays:
-        if p['has_sgp'] and p['sgp_tokens']:
-            result = fetch_sgp_price(p['sgp_tokens'])
-            if result and 'price' in result:
-                p['sgp_price'] = result['price']
-                p['sgp_status'] = 'success'
-            elif result and 'message' in result:
-                p['sgp_status'] = 'error'
-                p['sgp_error'] = result['message']
-            else:
-                p['sgp_status'] = 'error'
-        else:
-            p['sgp_status'] = 'no_tokens'
+    # ── Fetch SGP prices from OddsBlaze — only keep successfully priced ──
+    parlays = []
+    for cand in candidates_list:
+        if len(parlays) >= count:
+            break
+
+        result = fetch_sgp_price(cand['sgp_tokens'])
+
+        if result and 'price' in result:
+            parlays.append({
+                'id': f'parlay-{len(parlays)}',
+                'legs': cand['legs'],
+                'leg_ids': cand['leg_ids'],
+                'sgp_price': result['price'],
+                'sgp_links': result.get('links'),
+            })
 
     return parlays
 
 
 def get_display_odds(parlay):
-    """Get the best available odds string for a parlay."""
-    if parlay.get('sgp_price'):
-        return parlay['sgp_price']
-    # Fallback to naive calculation
-    dec = parlay.get('naive_decimal_odds', 2.0)
-    if dec >= 2:
-        return f"+{int((dec - 1) * 100)}"
-    elif dec > 1:
-        return f"-{int(100 / (dec - 1))}"
-    return "+100"
+    """Get the SGP odds string for display."""
+    return parlay.get('sgp_price', '+100')
 
 
 def calculate_payout(odds_str, amount):
@@ -734,7 +767,7 @@ with col_main:
                     'content': "Couldn't identify a game. Select one from the sidebar or mention a team name."
                 })
             else:
-                with st.spinner("Building parlays & fetching SGP prices..."):
+                with st.spinner("Building parlays & fetching SGP prices from sportsbook..."):
                     parlays = generate_parlays(
                         parsed, 8,
                         locked_legs=st.session_state.locked_legs,
@@ -742,8 +775,12 @@ with col_main:
                         num_legs_range=st.session_state.num_legs_filter,
                         odds_range=st.session_state.odds_range_filter,
                     )
+                if not parlays:
+                    st.session_state.chat_history.append({
+                        'role': 'assistant',
+                        'content': "No parlays could be priced by the sportsbook. Try adjusting filters or selecting a different game."
+                    })
                 st.session_state.recommendations = parlays
-                st.session_state.sgp_prices = {}
             st.rerun()
 
     # ── Error messages ──
@@ -756,12 +793,10 @@ with col_main:
         col_title, col_regen = st.columns([4, 1])
         with col_title:
             total = len(st.session_state.recommendations)
-            sgp_count = sum(1 for p in st.session_state.recommendations if p.get('sgp_status') == 'success')
             st.markdown(
-                f"<h2 style='margin:0;'>{total} Parlays Generated</h2>"
+                f"<h2 style='margin:0;'>{total} Parlays</h2>"
                 f"<p style='margin:2px 0 12px 0; font-size:0.82rem;'>"
-                f"<span class='sgp-status success'>{sgp_count} SGP priced</span> "
-                f"<span class='sgp-status pending'>{total - sgp_count} estimated</span></p>",
+                f"<span class='sgp-status success'>All SGP priced by sportsbook</span></p>",
                 unsafe_allow_html=True
             )
         with col_regen:
@@ -785,9 +820,6 @@ with col_main:
         # ── Render each parlay card ──
         for parlay in st.session_state.recommendations:
             odds_display = get_display_odds(parlay)
-            is_sgp = parlay.get('sgp_status') == 'success'
-            badge_class = 'odds-badge' if is_sgp else 'odds-badge odds-badge-pending'
-            source_label = 'SGP' if is_sgp else 'EST'
 
             st.markdown(f"<div class='parlay-card'>", unsafe_allow_html=True)
 
@@ -796,10 +828,10 @@ with col_main:
             with header_left:
                 st.markdown(
                     f"<div style='display:flex;align-items:center;gap:10px;'>"
-                    f"<div class='{badge_class}'>{odds_display}</div>"
+                    f"<div class='odds-badge'>{odds_display}</div>"
                     f"<div>"
                     f"<span class='meta-chip'>{len(parlay['legs'])} legs</span>"
-                    f"<span class='meta-chip'>{source_label}</span>"
+                    f"<span class='meta-chip'>SGP</span>"
                     f"</div></div>",
                     unsafe_allow_html=True
                 )
@@ -818,11 +850,14 @@ with col_main:
 
                 leg_col, lock_col, rm_col = st.columns([8, 0.6, 0.6])
                 with leg_col:
-                    player_str = f" · {leg['player']}" if leg.get('player') else ""
+                    # Clean player name from string or dict
+                    player_name = get_player_name(leg.get('player'))
+                    player_str = f" · {player_name}" if player_name else ""
+                    price_str = leg.get('price', '')
                     st.markdown(
                         f"<div class='leg-item {css}'>"
                         f"<div class='leg-name'>{leg.get('name', '')}</div>"
-                        f"<div class='leg-meta'>{leg.get('market', '')}{player_str} · {leg.get('price', '')}</div>"
+                        f"<div class='leg-meta'>{leg.get('market', '')}{player_str} · {price_str}</div>"
                         f"</div>",
                         unsafe_allow_html=True
                     )
@@ -858,23 +893,24 @@ with col_slip:
     if st.session_state.selected_parlay:
         parlay = st.session_state.selected_parlay
         odds_display = get_display_odds(parlay)
-        is_sgp = parlay.get('sgp_status') == 'success'
 
         st.markdown(
             f"<div style='display:flex;align-items:center;justify-content:space-between;margin:8px 0;'>"
             f"<span class='meta-chip'>{len(parlay['legs'])} legs</span>"
-            f"<span class='sgp-status {'success' if is_sgp else 'pending'}'>{'SGP PRICE' if is_sgp else 'ESTIMATED'}</span>"
+            f"<span class='sgp-status success'>SGP PRICE</span>"
             f"</div>",
             unsafe_allow_html=True
         )
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
         for leg in parlay['legs']:
-            player_str = f" · {leg['player']}" if leg.get('player') else ""
+            player_name = get_player_name(leg.get('player'))
+            player_str = f" · {player_name}" if player_name else ""
+            price_str = leg.get('price', '')
             st.markdown(
                 f"<div class='leg-item'>"
                 f"<div class='leg-name'>{leg.get('name', '')}</div>"
-                f"<div class='leg-meta'>{leg.get('market', '')}{player_str} · {leg.get('price', '')}</div>"
+                f"<div class='leg-meta'>{leg.get('market', '')}{player_str} · {price_str}</div>"
                 f"</div>",
                 unsafe_allow_html=True
             )
