@@ -1,886 +1,998 @@
 import streamlit as st
 import requests
 import json
+import random
 from datetime import datetime
 
 # Page configuration
 st.set_page_config(
-    page_title="AI Parlay Builder",
-    layout="wide"
+    page_title="BlazeBuilder – SGP Parlay Builder",
+    page_icon="🔥",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# API Configuration
+# ─── API Configuration ───────────────────────────────────────────────
 API_KEY = '10019992-c9b1-46b5-be2c-9e760b1c2041'
-API_URL = 'https://odds.oddsblaze.com'
+ODDS_API_BASE = 'https://data.oddsblaze.com/v1/odds'
+SGP_API_BASE = 'sgp.oddsblaze.com'
+DEFAULT_SPORTSBOOK = 'draftkings'
+DEFAULT_LEAGUE = 'nba'
 
-# Custom CSS - iOS/App Style Overhaul
+# ─── Custom CSS – Dark Sports-Dashboard Theme ────────────────────────
 st.markdown("""
 <style>
-    /* 1. GLOBAL APP THEME (iOS Light Mode) */
-    .stApp {
-        background-color: #F2F2F7; /* Apple System Gray 6 */
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-    
-    /* Hide Streamlit Chrome */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    /* Remove default padding */
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 5rem;
-    }
+/* ── Import Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap');
 
-    /* 2. TYPOGRAPHY */
-    h1, h2, h3, h4, p, label {
-        color: #000000 !important;
-        letter-spacing: -0.02em;
-    }
-    h1 { font-weight: 800 !important; font-size: 28px !important; }
-    h2 { font-weight: 700 !important; font-size: 22px !important; }
-    small { color: #8E8E93 !important; } /* iOS Secondary Label Color */
+/* ── Root Variables ── */
+:root {
+    --bg-primary: #0B0E14;
+    --bg-card: #141820;
+    --bg-card-hover: #1A1F2B;
+    --bg-input: #1A1F2B;
+    --border: #252B37;
+    --border-accent: #2D3548;
+    --text-primary: #F0F2F5;
+    --text-secondary: #8A92A6;
+    --text-muted: #555D70;
+    --accent-green: #00E676;
+    --accent-green-dim: rgba(0,230,118,0.12);
+    --accent-blue: #448AFF;
+    --accent-blue-dim: rgba(68,138,255,0.12);
+    --accent-orange: #FF9100;
+    --accent-orange-dim: rgba(255,145,0,0.12);
+    --accent-red: #FF5252;
+    --accent-red-dim: rgba(255,82,82,0.12);
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --shadow-card: 0 4px 24px rgba(0,0,0,0.35);
+    --shadow-glow-green: 0 0 20px rgba(0,230,118,0.15);
+}
 
-    /* 3. INPUTS & FORM ELEMENTS (iOS Rounded Style) */
-    .stTextInput input, .stNumberInput input {
-        background-color: #FFFFFF !important;
-        border: 1px solid #E5E5EA !important;
-        border-radius: 12px !important;
-        padding: 12px 16px !important;
-        font-size: 17px !important; /* iOS Body size */
-        color: #000000 !important;
-        box-shadow: none !important;
-    }
-    .stTextInput input:focus, .stNumberInput input:focus {
-        border-color: #007AFF !important; /* System Blue */
-    }
-    
-    /* Sliders */
-    .stSlider div[data-baseweb="slider"] {
-        padding-top: 10px;
-    }
+/* ── Global Reset ── */
+.stApp {
+    background-color: var(--bg-primary) !important;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    color: var(--text-primary);
+}
 
-    /* 4. BUTTONS (Pill Shapes) */
-    .stButton > button {
-        border-radius: 20px !important;
-        font-weight: 600 !important;
-        border: none !important;
-        padding: 10px 24px !important;
-        transition: transform 0.1s;
-    }
-    
-    /* Primary "Generate" Button (Green) */
-    div[data-testid="stForm"] .stButton > button {
-        background-color: #34C759 !important; /* System Green */
-        color: white !important;
-        width: 100%;
-        font-size: 18px !important;
-        height: 50px;
-    }
-    
-    /* Secondary/Action Buttons (Gray/Blue) */
-    div[data-testid="column"] .stButton > button {
-        background-color: #E5E5EA !important;
-        color: #007AFF !important;
-    }
-    
-    .stButton > button:active {
-        transform: scale(0.96);
-        opacity: 0.8;
-    }
+/* Hide Streamlit chrome */
+#MainMenu, footer, header { visibility: hidden !important; }
+.block-container { padding: 1.5rem 2rem 5rem 2rem; max-width: 1400px; }
 
-    /* 5. TRUE HORIZONTAL CAROUSEL (Desktop & Mobile) */
-    .carousel-container {
-        display: flex !important;
-        overflow-x: auto !important;
-        gap: 16px !important;
-        padding: 10px 4px 30px 4px !important; /* Bottom padding for shadow */
-        scroll-snap-type: x mandatory;
-        -webkit-overflow-scrolling: touch;
-        margin-bottom: 20px;
-    }
-    /* Hide ugly scrollbars but keep functionality */
-    .carousel-container::-webkit-scrollbar {
-        height: 0px; 
-        background: transparent; 
-    }
+/* ── Typography ── */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+    font-family: 'DM Sans', sans-serif !important;
+    letter-spacing: -0.03em;
+}
+h1 { font-weight: 700 !important; font-size: 1.75rem !important; }
+h2 { font-weight: 600 !important; font-size: 1.25rem !important; }
+h3 { font-weight: 600 !important; font-size: 1.05rem !important; }
+p, label, span { color: var(--text-secondary) !important; }
 
-    /* 6. PARLAY CARDS (Fixed Width, Side-by-Side) */
-    .parlay-card {
-        flex: 0 0 320px !important; /* Fixed width prevents squashing */
-        scroll-snap-align: center;
-        background: #FFFFFF;
-        border-radius: 22px;
-        padding: 20px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* Soft Apple-like shadow */
-        border: 1px solid rgba(0,0,0,0.02);
-        position: relative;
-    }
+/* ── Header Bar ── */
+.app-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.app-header .logo {
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.04em;
+}
+.app-header .logo span { color: var(--accent-green); }
+.app-header .subtitle {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+}
 
-    /* 7. ODDS BADGE */
-    .odds-badge {
-        background-color: #34C759;
-        color: white;
-        padding: 6px 14px;
-        border-radius: 20px;
-        font-weight: 800;
-        font-size: 18px;
-        box-shadow: 0 4px 10px rgba(52, 199, 89, 0.3);
-    }
+/* ── Inputs ── */
+.stTextInput input, .stNumberInput input, .stSelectbox > div > div {
+    background-color: var(--bg-input) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--text-primary) !important;
+    font-size: 0.95rem !important;
+    padding: 10px 14px !important;
+    font-family: 'DM Sans', sans-serif !important;
+}
+.stTextInput input:focus, .stNumberInput input:focus {
+    border-color: var(--accent-green) !important;
+    box-shadow: 0 0 0 2px var(--accent-green-dim) !important;
+}
+.stTextInput input::placeholder { color: var(--text-muted) !important; }
 
-    /* 8. LEGS & LISTS */
-    .leg-item {
-        background-color: #F2F2F7; /* Grouped Table View Background */
-        border-radius: 12px;
-        padding: 12px;
-        margin-bottom: 8px;
-        border-left: 4px solid #007AFF; /* Blue accent */
-    }
-    .leg-item strong { color: #000; font-size: 15px; }
-    
-    .locked-leg {
-        background-color: #FFF8E1;
-        border-left-color: #FF9500; /* System Orange */
-    }
-    .removed-leg {
-        opacity: 0.5;
-        border-left-color: #FF3B30; /* System Red */
-    }
+/* ── Buttons ── */
+.stButton > button {
+    border-radius: var(--radius-sm) !important;
+    font-weight: 600 !important;
+    font-family: 'DM Sans', sans-serif !important;
+    border: 1px solid var(--border) !important;
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    padding: 8px 20px !important;
+    transition: all 0.15s ease !important;
+    font-size: 0.88rem !important;
+}
+.stButton > button:hover {
+    background-color: var(--bg-card-hover) !important;
+    border-color: var(--accent-green) !important;
+    color: var(--accent-green) !important;
+}
+.stButton > button:active { transform: scale(0.97); }
 
-    /* 9. BET SLIP (Floating Card) */
-    .bet-slip {
-        background: #FFFFFF;
-        border-radius: 24px;
-        padding: 24px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.12);
-        position: sticky;
-        top: 2rem;
-        border: 1px solid #E5E5EA;
-    }
-    .bet-slip h3 { color: #000; }
-    .bet-slip .leg-item { 
-        background-color: #F9F9F9;
-        border-left: none; /* Cleaner look for slip */
-    }
+/* Generate button override */
+div[data-testid="stForm"] .stButton > button {
+    background: linear-gradient(135deg, #00C853, #00E676) !important;
+    color: #0B0E14 !important;
+    border: none !important;
+    font-size: 1rem !important;
+    padding: 12px 24px !important;
+    border-radius: var(--radius-md) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    box-shadow: var(--shadow-glow-green);
+}
+div[data-testid="stForm"] .stButton > button:hover {
+    color: #0B0E14 !important;
+    box-shadow: 0 0 30px rgba(0,230,118,0.3);
+}
 
-    /* Sidebar Styling */
-    section[data-testid="stSidebar"] {
-        background-color: #FFFFFF;
-        border-right: 1px solid #E5E5EA;
-    }
+/* ── Parlay Card ── */
+.parlay-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-card);
+}
+.parlay-card:hover {
+    border-color: var(--accent-green);
+    box-shadow: var(--shadow-card), var(--shadow-glow-green);
+}
+.parlay-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
 
-    /* Divider */
-    hr { margin: 1.5rem 0; border-color: #E5E5EA; }
+/* ── Odds Badge ── */
+.odds-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #00C853, #00E676);
+    color: #0B0E14;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-weight: 800;
+    font-size: 1.05rem;
+    font-family: 'JetBrains Mono', monospace;
+    box-shadow: 0 2px 12px rgba(0,230,118,0.25);
+    letter-spacing: -0.02em;
+}
+.odds-badge-pending {
+    background: var(--bg-input);
+    color: var(--text-muted);
+    border: 1px dashed var(--border);
+    box-shadow: none;
+}
 
-    /* Mobile Responsive Tweaks */
-    @media (max-width: 768px) {
-        .parlay-card { flex: 0 0 85% !important; } /* Wider cards on phone */
-        .bet-slip { position: relative; margin-top: 20px; z-index: 10; }
-    }
+/* ── Meta Chips ── */
+.meta-chip {
+    display: inline-block;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-right: 6px;
+    border: 1px solid var(--border);
+}
+
+/* ── Leg Item ── */
+.leg-item {
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    border-left: 3px solid var(--accent-blue);
+    transition: all 0.15s ease;
+}
+.leg-item:hover { background: var(--bg-card-hover); }
+.leg-item .leg-name {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.88rem;
+}
+.leg-item .leg-meta {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+}
+.locked-leg { border-left-color: var(--accent-orange); background: var(--accent-orange-dim); }
+.removed-leg { border-left-color: var(--accent-red); opacity: 0.45; }
+
+/* ── Bet Slip ── */
+.bet-slip {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    box-shadow: var(--shadow-card);
+    position: sticky;
+    top: 1.5rem;
+}
+.bet-slip-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+}
+.bet-slip-empty .icon { font-size: 2rem; margin-bottom: 8px; }
+
+/* ── Divider ── */
+.divider {
+    height: 1px;
+    background: var(--border);
+    margin: 14px 0;
+    border: none;
+}
+
+/* ── Payout Row ── */
+.payout-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+}
+.payout-row .label { color: var(--text-muted); font-size: 0.85rem; }
+.payout-row .value {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+.payout-row .value.green { color: var(--accent-green); }
+
+/* ── Sidebar ── */
+section[data-testid="stSidebar"] {
+    background-color: var(--bg-card) !important;
+    border-right: 1px solid var(--border) !important;
+}
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 { color: var(--text-primary) !important; }
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] label { color: var(--text-secondary) !important; }
+
+/* Slider track overrides */
+.stSlider [data-baseweb="slider"] div { background-color: var(--border) !important; }
+
+/* ── Status Messages ── */
+.sgp-status {
+    font-size: 0.78rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-block;
+}
+.sgp-status.success { background: var(--accent-green-dim); color: var(--accent-green); }
+.sgp-status.error { background: var(--accent-red-dim); color: var(--accent-red); }
+.sgp-status.pending { background: var(--accent-blue-dim); color: var(--accent-blue); }
+
+/* ── Game Selector Cards ── */
+.game-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+.game-pill.active {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+    background: var(--accent-green-dim);
+}
+
+/* ── Scrollbar Styling ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Expander ── */
+.streamlit-expanderHeader { 
+    background: var(--bg-input) !important; 
+    border-radius: var(--radius-sm) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ── Columns gap fix ── */
+[data-testid="stHorizontalBlock"] { gap: 12px; }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+    .block-container { padding: 1rem 1rem 4rem 1rem; }
+    .parlay-card { padding: 14px; }
+    .bet-slip { position: relative; }
+}
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'events' not in st.session_state:
-    st.session_state.events = []
-if 'selected_game' not in st.session_state:
-    st.session_state.selected_game = None
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-if 'recommendations' not in st.session_state:
-    st.session_state.recommendations = []
-if 'locked_legs' not in st.session_state:
-    st.session_state.locked_legs = []
-if 'removed_legs' not in st.session_state:
-    st.session_state.removed_legs = []
-if 'selected_parlay' not in st.session_state:
-    st.session_state.selected_parlay = None
-if 'bet_amount' not in st.session_state:
-    st.session_state.bet_amount = 10.0
-if 'num_legs_filter' not in st.session_state:
-    st.session_state.num_legs_filter = (3, 5)
-if 'odds_range_filter' not in st.session_state:
-    st.session_state.odds_range_filter = (1.2, 100.0)
+# ─── Session State Initialization ─────────────────────────────────────
+defaults = {
+    'games': [],
+    'selected_game': None,
+    'chat_history': [],
+    'recommendations': [],
+    'locked_legs': [],
+    'removed_legs': [],
+    'selected_parlay': None,
+    'bet_amount': 10.0,
+    'num_legs_filter': (3, 5),
+    'odds_range_filter': (1.5, 50.0),
+    'sportsbook': DEFAULT_SPORTSBOOK,
+    'league': DEFAULT_LEAGUE,
+    'sgp_prices': {},  # parlay_id -> sgp price
+}
+for key, val in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = val
 
-def load_events():
-    """Load NBA games from OddsBlaze API"""
+
+# ═══════════════════════════════════════════════════════════════════════
+# API FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════
+
+def load_games():
+    """Load games from OddsBlaze v1 API."""
     try:
-        url = f"{API_URL}/?key={API_KEY}&league=nba&sportsbook=draftkings"
-        response = requests.get(url, timeout=10)
-        
+        sportsbook = st.session_state.sportsbook
+        league = st.session_state.league
+        url = f"{ODDS_API_BASE}/{sportsbook}_{league}.json?key={API_KEY}"
+        response = requests.get(url, timeout=15)
+
         if response.status_code != 200:
-            st.error(f"API Error: {response.status_code}")
+            st.error(f"API returned {response.status_code}. Check your API key or plan.")
             return False
-        
+
         data = response.json()
-        
-        if not data.get('events') or len(data['events']) == 0:
-            st.error("No games available")
+        games = data.get('games', [])
+
+        if not games:
+            st.warning("No games found for the selected league/sportsbook.")
             return False
-        
-        st.session_state.events = data['events']
-        
-        # Don't add confirmation message to chat
+
+        # Flatten: attach sportsbook odds directly onto each game for easier access
+        for game in games:
+            flat_odds = []
+            for sb in game.get('sportsbooks', []):
+                if sb.get('id') == sportsbook:
+                    flat_odds = sb.get('odds', [])
+                    break
+            game['odds'] = flat_odds
+
+        st.session_state.games = games
         return True
-        
+
     except Exception as e:
         st.error(f"Error loading games: {str(e)}")
         return False
 
+
+def fetch_sgp_price(sgp_tokens, sportsbook=None):
+    """
+    Call the OddsBlaze SGP BlazeBuilder endpoint.
+    
+    POST https://{sportsbook}.sgp.oddsblaze.com/?key=API_KEY
+    Body: JSON array of sgp token strings
+    
+    Returns dict: {"price": "+425"} or {"message": "..."} or None on error
+    """
+    sportsbook = sportsbook or st.session_state.sportsbook
+    url = f"https://{sportsbook}.{SGP_API_BASE}/?key={API_KEY}"
+
+    try:
+        response = requests.post(
+            url,
+            json=sgp_tokens,
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {"message": f"HTTP {response.status_code}"}
+    except Exception as e:
+        return {"message": str(e)}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# NARRATIVE PARSER
+# ═══════════════════════════════════════════════════════════════════════
+
 def parse_narrative(narrative, force_event=None):
-    """Parse user narrative to understand betting intent"""
+    """Parse user input to understand betting intent."""
     lower = narrative.lower()
-    events = st.session_state.events
-    
-    # Use forced event if provided (from game selector)
+    games = st.session_state.games
+
+    # Resolve the target game
     if force_event:
-        mentioned_event = force_event
+        target = force_event
     else:
-        # Find mentioned event from narrative
-        mentioned_event = None
-        for event in events:
-            home_name = event['teams']['home']['name'].lower()
-            away_name = event['teams']['away']['name'].lower()
-            home_abbrev = event['teams']['home']['abbreviation'].lower()
-            away_abbrev = event['teams']['away']['abbreviation'].lower()
-            
-            # Split team names into words to match partial names
-            home_words = home_name.split()
-            away_words = away_name.split()
-            
-            # Check full names, abbreviations, and individual words
-            if (home_name in lower or away_name in lower or 
-                home_abbrev in lower or away_abbrev in lower or
-                any(word in lower for word in home_words if len(word) > 3) or
-                any(word in lower for word in away_words if len(word) > 3)):
-                mentioned_event = event
+        target = None
+        for game in games:
+            home = game['teams']['home']
+            away = game['teams']['away']
+            names = [
+                home['name'].lower(), away['name'].lower(),
+                home.get('abbreviation', '').lower(), away.get('abbreviation', '').lower()
+            ]
+            words = home['name'].lower().split() + away['name'].lower().split()
+            sig_words = [w for w in words if len(w) > 3]
+
+            if any(n in lower for n in names) or any(w in lower for w in sig_words):
+                target = game
                 break
-    
-    if not mentioned_event:
+
+    if not target:
         return None
-    
+
     # Determine winning team
     winning_team = None
-    win_words = ['win', 'beat', 'dominate', 'destroy', 'crush']
-    has_win = any(word in lower for word in win_words)
-    
-    if has_win:
-        home_name = mentioned_event['teams']['home']['name']
-        away_name = mentioned_event['teams']['away']['name']
-        home_name_lower = home_name.lower()
-        away_name_lower = away_name.lower()
-        home_abbrev = mentioned_event['teams']['home']['abbreviation'].lower()
-        away_abbrev = mentioned_event['teams']['away']['abbreviation'].lower()
-        
-        # Split into words to check partial matches
-        home_words = home_name_lower.split()
-        away_words = away_name_lower.split()
-        
-        # Check if home team is mentioned (full name, abbreviation, or any significant word)
-        home_mentioned = (home_name_lower in lower or 
-                         home_abbrev in lower or 
-                         any(word in lower for word in home_words if len(word) > 3))
-        
-        # Check if away team is mentioned
-        away_mentioned = (away_name_lower in lower or 
-                         away_abbrev in lower or 
-                         any(word in lower for word in away_words if len(word) > 3))
-        
-        if home_mentioned and not away_mentioned:
+    win_words = ['win', 'beat', 'dominate', 'destroy', 'crush', 'cover']
+    if any(w in lower for w in win_words):
+        home_name = target['teams']['home']['name']
+        away_name = target['teams']['away']['name']
+        home_match = (home_name.lower() in lower or
+                      target['teams']['home'].get('abbreviation', '').lower() in lower or
+                      any(w in lower for w in home_name.lower().split() if len(w) > 3))
+        away_match = (away_name.lower() in lower or
+                      target['teams']['away'].get('abbreviation', '').lower() in lower or
+                      any(w in lower for w in away_name.lower().split() if len(w) > 3))
+        if home_match and not away_match:
             winning_team = home_name
-        elif away_mentioned and not home_mentioned:
+        elif away_match and not home_match:
             winning_team = away_name
-        elif home_mentioned and away_mentioned:
-            # If both mentioned, the one closer to a win word wins
-            # Simple heuristic: first one mentioned
-            for word in lower.split():
-                if word in [w.lower() for w in home_words if len(w) > 3] + [home_abbrev]:
-                    winning_team = home_name
-                    break
-                elif word in [w.lower() for w in away_words if len(w) > 3] + [away_abbrev]:
-                    winning_team = away_name
-                    break
-    
-    # Identify sentiment
-    is_high_scoring = any(word in lower for word in ['high scoring', 'lots of points', 'shootout', 'offensive'])
-    is_low_scoring = any(word in lower for word in ['low scoring', 'defensive', 'grind'])
-    is_blowout = any(word in lower for word in ['blowout', 'dominate', 'destroy', 'crush'])
-    
-    # Find player mentions
+
+    is_high = any(w in lower for w in ['high scoring', 'shootout', 'offensive', 'lots of points', 'over'])
+    is_low = any(w in lower for w in ['low scoring', 'defensive', 'grind', 'under'])
+    is_blowout = any(w in lower for w in ['blowout', 'dominate', 'destroy', 'crush'])
+
+    # Player detection
     players = []
-    for odd in mentioned_event.get('odds', []):
-        # Make sure the odd has a player field and it's not None
-        if odd.get('player') and isinstance(odd.get('player'), str):
-            try:
-                player_name = odd['player'].lower()
-                # Check if any part of the player name is mentioned
-                player_parts = player_name.split()
-                if any(part in lower for part in player_parts) or player_name in lower:
-                    has_positive = any(word in lower for word in ['score', 'big game', 'lots', 'great'])
-                    players.append({
-                        'name': odd['player'],
-                        'sentiment': 'positive' if has_positive else 'neutral'
-                    })
-            except (AttributeError, TypeError):
-                # Skip if there's any issue with the player name
-                continue
-    
-    # Remove duplicates
-    unique_players = {p['name']: p for p in players}.values()
-    
+    seen_players = set()
+    for odd in target.get('odds', []):
+        player = odd.get('player')
+        if player and isinstance(player, str) and player not in seen_players:
+            parts = player.lower().split()
+            if any(p in lower for p in parts):
+                has_pos = any(w in lower for w in ['score', 'big game', 'lots', 'great', 'over'])
+                players.append({'name': player, 'sentiment': 'positive' if has_pos else 'neutral'})
+                seen_players.add(player)
+
     return {
-        'event': mentioned_event,
+        'game': target,
         'winning_team': winning_team,
-        'is_high_scoring': is_high_scoring,
-        'is_low_scoring': is_low_scoring,
+        'is_high_scoring': is_high,
+        'is_low_scoring': is_low,
         'is_blowout': is_blowout,
-        'players': list(unique_players)
+        'players': players,
     }
 
-def generate_parlays(parsed_data, count=10, locked_legs=None, removed_legs=None, num_legs_range=(3, 5), odds_range=(1.2, 100.0)):
-    """
-    IMPROVED: Generate diverse parlay combinations with variety in:
-    - Number of legs (randomized within range)
-    - Bet selection strategy (weighted randomization)
-    - Market diversity (spread across different bet types)
-    """
-    import random
-    
-    try:
-        event = parsed_data['event']
-        winning_team = parsed_data['winning_team']
-        is_high_scoring = parsed_data['is_high_scoring']
-        is_low_scoring = parsed_data['is_low_scoring']
-        is_blowout = parsed_data['is_blowout']
-        players = parsed_data['players']
-        
-        locked_legs = locked_legs or []
-        removed_legs = removed_legs or []
-        removed_ids = {leg['id'] for leg in removed_legs}
-        
-        parlays = []
-        all_odds = event.get('odds', [])
-        
-        # Filter valid odds
-        valid_odds = [o for o in all_odds 
-                     if o.get('id') and o.get('market') and o.get('name') and o.get('price')
-                     and o['id'] not in removed_ids]
-        
-        min_legs, max_legs = num_legs_range
-        min_odds, max_odds = odds_range
-        
-        # Categorize odds by market type for better selection
-        odds_by_market = {}
-        for odd in valid_odds:
-            market = odd.get('market', 'Other')
-            if market not in odds_by_market:
-                odds_by_market[market] = []
-            odds_by_market[market].append(odd)
-        
-        # User intent weights (higher = more likely to include)
-        intent_weights = {
-            'moneyline': 0.8 if winning_team else 0.1,
-            'spread': 0.7 if is_blowout else 0.3,
-            'total': 0.7 if (is_high_scoring or is_low_scoring) else 0.2,
-            'player_props': 0.9 if players else 0.3
-        }
-        
-        attempts = 0
-        max_attempts = count * 10  # More attempts for better variety
-        
-        while len(parlays) < count and attempts < max_attempts:
-            attempts += 1
-            
-            # KEY IMPROVEMENT #1: Randomize number of legs for each parlay
-            target_legs = random.randint(min_legs, max_legs)
-            
-            # Start with locked legs
-            legs = list(locked_legs)
-            used_ids = {leg['id'] for leg in locked_legs}
-            used_markets = {leg.get('market') for leg in locked_legs}
-            
-            # Skip if locked legs already exceed target
-            if len(legs) > target_legs:
-                continue
-            
-            # KEY IMPROVEMENT #2: Build leg pool with weighted preferences
-            leg_pool = []
-            
-            # Moneyline (if team mentioned)
-            if winning_team and random.random() < intent_weights['moneyline']:
-                ml_odds = [o for o in odds_by_market.get('Moneyline', []) 
-                          if o.get('name') == winning_team and o['id'] not in used_ids]
-                if ml_odds:
-                    leg_pool.append({
-                        'odds': ml_odds,
-                        'priority': 10,
-                        'max_select': 1
-                    })
-            
-            # Spread (prefer if blowout mentioned)
-            if random.random() < intent_weights['spread']:
-                spread_odds = [o for o in odds_by_market.get('Point Spread', []) 
-                              if o['id'] not in used_ids]
-                if spread_odds:
-                    # If blowout, filter for larger spreads
-                    if is_blowout and winning_team:
-                        filtered_spreads = []
-                        for o in spread_odds:
-                            if winning_team in o.get('name', ''):
-                                try:
-                                    line = o.get('selection', {}).get('line')
-                                    if line and abs(float(line)) >= 5:
-                                        filtered_spreads.append(o)
-                                except (ValueError, TypeError):
-                                    continue
-                        if filtered_spreads:
-                            spread_odds = filtered_spreads
-                    
-                    if spread_odds:
-                        leg_pool.append({
-                            'odds': spread_odds,
-                            'priority': 8 if is_blowout else 5,
-                            'max_select': 1
-                        })
-            
-            # Total Points (prefer if scoring mentioned)
-            if random.random() < intent_weights['total']:
-                side = 'Over' if is_high_scoring else ('Under' if is_low_scoring else random.choice(['Over', 'Under']))
-                total_odds = [o for o in odds_by_market.get('Total Points', []) 
-                             if side in o.get('name', '') and o['id'] not in used_ids]
-                if total_odds:
-                    leg_pool.append({
-                        'odds': total_odds,
-                        'priority': 7 if (is_high_scoring or is_low_scoring) else 4,
-                        'max_select': 1
-                    })
-            
-            # Player Props (high priority if players mentioned)
-            if random.random() < intent_weights['player_props']:
-                for player in players:
-                    player_odds = [o for o in valid_odds 
-                                  if o.get('player') == player['name'] and o['id'] not in used_ids]
-                    if player_odds:
-                        leg_pool.append({
-                            'odds': player_odds,
-                            'priority': 9,
-                            'max_select': random.randint(1, 2)
-                        })
-            
-            # KEY IMPROVEMENT #3: Add variety with other market types
-            other_markets = ['First Basket', 'Player Rebounds', 'Player Assists', 
-                           'Player Threes', 'Quarter Winner', 'Half Winner',
-                           'Player Points', 'Team Total']
-            
-            for market_name in other_markets:
-                if market_name in odds_by_market and random.random() < 0.4:
-                    market_odds = [o for o in odds_by_market[market_name] if o['id'] not in used_ids]
-                    if market_odds:
-                        leg_pool.append({
-                            'odds': market_odds,
-                            'priority': random.randint(2, 6),
-                            'max_select': 1
-                        })
-            
-            # KEY IMPROVEMENT #4: Weighted random selection from pool
-            leg_pool.sort(key=lambda x: x['priority'], reverse=True)
-            
-            for pool_item in leg_pool:
+
+# ═══════════════════════════════════════════════════════════════════════
+# PARLAY GENERATOR  (builds legs, then prices via SGP API)
+# ═══════════════════════════════════════════════════════════════════════
+
+def generate_parlays(parsed, count=8, locked_legs=None, removed_legs=None,
+                     num_legs_range=(3, 5), odds_range=(1.5, 50.0)):
+    """Generate diverse parlay combinations, then fetch real SGP prices."""
+    game = parsed['game']
+    winning_team = parsed['winning_team']
+    is_high = parsed['is_high_scoring']
+    is_low = parsed['is_low_scoring']
+    is_blowout = parsed['is_blowout']
+    players = parsed['players']
+
+    locked_legs = locked_legs or []
+    removed_legs = removed_legs or []
+    removed_ids = {l['id'] for l in removed_legs}
+
+    all_odds = game.get('odds', [])
+    valid_odds = [o for o in all_odds
+                  if o.get('id') and o.get('market') and o.get('name') and o.get('price')
+                  and o['id'] not in removed_ids]
+
+    # We need odds with sgp tokens for SGP pricing
+    sgp_odds = [o for o in valid_odds if o.get('sgp')]
+
+    # If no sgp tokens at all, fall back to all valid odds (prices will be estimated)
+    use_odds = sgp_odds if sgp_odds else valid_odds
+    has_sgp_tokens = len(sgp_odds) > 0
+
+    # Group by market
+    by_market = {}
+    for o in use_odds:
+        m = o.get('market', 'Other')
+        by_market.setdefault(m, []).append(o)
+
+    min_legs, max_legs = num_legs_range
+    parlays = []
+    attempts = 0
+    max_attempts = count * 20
+
+    while len(parlays) < count and attempts < max_attempts:
+        attempts += 1
+        target_legs = random.randint(min_legs, max_legs)
+        legs = list(locked_legs)
+        used_ids = {l['id'] for l in legs}
+
+        if len(legs) > target_legs:
+            continue
+
+        # Build weighted candidate pool
+        candidates = []
+
+        # Moneyline for predicted winner
+        if winning_team:
+            ml = [o for o in by_market.get('Moneyline', [])
+                  if winning_team.lower() in o.get('name', '').lower() and o['id'] not in used_ids]
+            if ml and random.random() < 0.8:
+                candidates.append(random.choice(ml))
+
+        # Spread
+        spreads = [o for o in by_market.get('Point Spread', []) if o['id'] not in used_ids]
+        if spreads and random.random() < (0.7 if is_blowout else 0.35):
+            candidates.append(random.choice(spreads))
+
+        # Totals
+        side = 'Over' if is_high else ('Under' if is_low else random.choice(['Over', 'Under']))
+        totals = [o for o in by_market.get('Total Points', [])
+                  if side in o.get('name', '') and o['id'] not in used_ids]
+        if totals and random.random() < (0.7 if (is_high or is_low) else 0.3):
+            candidates.append(random.choice(totals))
+
+        # Player props for mentioned players
+        for p in players:
+            p_odds = [o for o in use_odds if o.get('player') == p['name'] and o['id'] not in used_ids]
+            if p_odds and random.random() < 0.85:
+                candidates.append(random.choice(p_odds))
+
+        # Random props for variety
+        prop_markets = [m for m in by_market if m not in ('Moneyline', 'Point Spread', 'Total Points')]
+        random.shuffle(prop_markets)
+        for m in prop_markets[:4]:
+            opts = [o for o in by_market[m] if o['id'] not in used_ids]
+            if opts and random.random() < 0.4:
+                candidates.append(random.choice(opts))
+
+        # De-dup and trim
+        for c in candidates:
+            if c['id'] not in used_ids and len(legs) < target_legs:
+                legs.append(c)
+                used_ids.add(c['id'])
+
+        # Fill remaining
+        if len(legs) < target_legs:
+            pool = [o for o in use_odds if o['id'] not in used_ids]
+            random.shuffle(pool)
+            for o in pool:
                 if len(legs) >= target_legs:
                     break
-                
-                available = [o for o in pool_item['odds'] if o['id'] not in used_ids]
-                if not available:
-                    continue
-                
-                num_to_select = min(pool_item['max_select'], target_legs - len(legs), len(available))
-                
-                selected = random.sample(available, num_to_select)
-                for odd in selected:
-                    legs.append({**odd, 'display': odd['name']})
-                    used_ids.add(odd['id'])
-                    used_markets.add(odd.get('market'))
-            
-            # KEY IMPROVEMENT #5: Fill remaining with diverse markets
-            if len(legs) < target_legs:
-                remaining_needed = target_legs - len(legs)
-                unused_odds = [o for o in valid_odds 
-                              if o['id'] not in used_ids 
-                              and o.get('market') != 'Moneyline']
-                
-                # Prefer odds from markets we haven't used
-                unused_from_new_markets = [o for o in unused_odds if o.get('market') not in used_markets]
-                
-                if len(unused_from_new_markets) >= remaining_needed:
-                    selected = random.sample(unused_from_new_markets, remaining_needed)
-                else:
-                    # Mix new markets with any available
-                    selected = unused_from_new_markets.copy()
-                    remaining_still_needed = remaining_needed - len(selected)
-                    other_unused = [o for o in unused_odds if o not in unused_from_new_markets]
-                    if other_unused and remaining_still_needed > 0:
-                        selected.extend(random.sample(other_unused, min(remaining_still_needed, len(other_unused))))
-                
-                for odd in selected:
-                    legs.append({**odd, 'display': odd['name']})
-                    used_ids.add(odd['id'])
-            
-            # Validate parlay
-            if len(legs) < min_legs or len(legs) > max_legs:
-                continue
-            
-            # Calculate odds
-            try:
-                decimal_odds = 1
-                for leg in legs:
-                    price = leg.get('price', '+100')
+                legs.append(o)
+                used_ids.add(o['id'])
+
+        if not (min_legs <= len(legs) <= max_legs):
+            continue
+
+        # Duplicate check
+        leg_set = frozenset(l['id'] for l in legs)
+        if any(frozenset(p['leg_ids']) == leg_set for p in parlays):
+            continue
+
+        # Collect sgp tokens for this parlay
+        sgp_tokens = [l.get('sgp') for l in legs if l.get('sgp')]
+
+        # Fallback: calculate naive odds (will be replaced by SGP price)
+        naive_dec = 1.0
+        try:
+            for l in legs:
+                price = l.get('price', '+100')
+                if isinstance(price, str):
                     if price.startswith('+'):
-                        decimal_odds *= (int(price[1:]) / 100) + 1
+                        naive_dec *= (int(price[1:]) / 100) + 1
+                    elif price.startswith('-'):
+                        naive_dec *= (100 / abs(int(price[1:]))) + 1
                     else:
-                        decimal_odds *= (100 / abs(int(price[1:]))) + 1
-                
-                # Filter by odds range
-                if not (min_odds <= decimal_odds <= max_odds):
-                    continue
-                
-                american_odds = f"+{int((decimal_odds - 1) * 100)}" if decimal_odds >= 2 else f"-{int(100 / (decimal_odds - 1))}"
-                implied_prob = round(1 / decimal_odds * 100, 1)
-                
-                # Check for duplicates (same legs in different order)
-                leg_ids_set = frozenset(leg['id'] for leg in legs)
-                if any(frozenset(p.get('legs_ids', [])) == leg_ids_set for p in parlays):
-                    continue
-                
-                parlays.append({
-                    'id': f'parlay-{len(parlays)}',
-                    'legs': legs,
-                    'legs_ids': leg_ids_set,
-                    'event_id': event['id'],
-                    'odds_american': american_odds,
-                    'implied_probability': implied_prob,
-                    'decimal_odds': decimal_odds
-                })
-                
-            except (ValueError, ZeroDivisionError, TypeError):
-                continue
-        
-        return parlays
-    
-    except Exception as e:
-        st.error(f"Error generating parlays: {str(e)}")
-        return []
+                        naive_dec *= float(price)
+                else:
+                    naive_dec *= float(price)
+        except (ValueError, ZeroDivisionError):
+            continue
+
+        parlays.append({
+            'id': f'parlay-{len(parlays)}',
+            'legs': legs,
+            'leg_ids': leg_set,
+            'sgp_tokens': sgp_tokens,
+            'has_sgp': len(sgp_tokens) == len(legs) and has_sgp_tokens,
+            'naive_decimal_odds': round(naive_dec, 2),
+            'sgp_price': None,       # filled in after API call
+            'sgp_status': 'pending',  # pending | success | error | no_tokens
+        })
+
+    # ── Fetch SGP prices from OddsBlaze ──
+    for p in parlays:
+        if p['has_sgp'] and p['sgp_tokens']:
+            result = fetch_sgp_price(p['sgp_tokens'])
+            if result and 'price' in result:
+                p['sgp_price'] = result['price']
+                p['sgp_status'] = 'success'
+            elif result and 'message' in result:
+                p['sgp_status'] = 'error'
+                p['sgp_error'] = result['message']
+            else:
+                p['sgp_status'] = 'error'
+        else:
+            p['sgp_status'] = 'no_tokens'
+
+    return parlays
+
+
+def get_display_odds(parlay):
+    """Get the best available odds string for a parlay."""
+    if parlay.get('sgp_price'):
+        return parlay['sgp_price']
+    # Fallback to naive calculation
+    dec = parlay.get('naive_decimal_odds', 2.0)
+    if dec >= 2:
+        return f"+{int((dec - 1) * 100)}"
+    elif dec > 1:
+        return f"-{int(100 / (dec - 1))}"
+    return "+100"
+
 
 def calculate_payout(odds_str, amount):
-    """Calculate potential payout from American odds"""
+    """Calculate profit from American odds string."""
     try:
+        odds_str = str(odds_str)
         if odds_str.startswith('+'):
             return amount * (int(odds_str[1:]) / 100)
-        else:
+        elif odds_str.startswith('-'):
             return amount * (100 / int(odds_str[1:]))
+        return 0
     except:
         return 0
 
-# Header
+
+# ═══════════════════════════════════════════════════════════════════════
+# HEADER
+# ═══════════════════════════════════════════════════════════════════════
 st.markdown("""
-<div style='margin-bottom: 1.5rem;'>
-    <h1 style='color: #1a1a1a; margin: 0; font-size: 1.75rem; font-weight: 700;'>Parlay Builder</h1>
-    <p style='color: #6b6b6b; margin: 0.25rem 0 0 0; font-size: 0.9rem;'>Build your perfect same-game parlay</p>
+<div class="app-header">
+    <div class="logo">🔥 Blaze<span>Builder</span></div>
+    <div class="subtitle">SGP PARLAY ENGINE</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Load games on first run
-if not st.session_state.events:
-    with st.spinner("Loading NBA games..."):
-        load_events()
+# ── Load games on first run ──
+if not st.session_state.games:
+    with st.spinner("Loading games from OddsBlaze..."):
+        load_games()
 
-# Main layout
-col1, col2 = st.columns([2, 1])
 
-with col1:
-    # Only show errors if they exist
-    assistant_messages = [msg for msg in st.session_state.chat_history if msg['role'] == 'assistant']
-    
-    if assistant_messages:
-        for msg in assistant_messages:
-            st.error(msg['content'])
-    
-    # Input form - compact
-    with st.form(key='chat_form', clear_on_submit=True):
+# ═══════════════════════════════════════════════════════════════════════
+# MAIN LAYOUT
+# ═══════════════════════════════════════════════════════════════════════
+col_main, col_slip = st.columns([5, 2])
+
+with col_main:
+    # ── Input Form ──
+    with st.form(key='parlay_form', clear_on_submit=True):
         user_input = st.text_input(
-            "input",
-            placeholder="Describe your parlay (e.g., 'Knicks win big, Brunson scores lots')",
-            key='user_input',
-            label_visibility="collapsed"
+            "prompt",
+            placeholder="e.g. 'Knicks win big, Brunson scores a lot, high-scoring game'",
+            label_visibility="collapsed",
         )
-        submit = st.form_submit_button("Generate", use_container_width=True)
-        
+        submit = st.form_submit_button("⚡ Generate Parlays", use_container_width=True)
+
         if submit and user_input:
-            # Add user message
-            st.session_state.chat_history.append({
-                'role': 'user',
-                'content': user_input
-            })
-            
-            # Parse and generate
+            st.session_state.chat_history.append({'role': 'user', 'content': user_input})
             parsed = parse_narrative(user_input, force_event=st.session_state.selected_game)
-            
+
             if not parsed:
                 st.session_state.chat_history.append({
                     'role': 'assistant',
-                    'content': "❌ Couldn't identify the game. Please select a game from the sidebar or mention a team name."
+                    'content': "Couldn't identify a game. Select one from the sidebar or mention a team name."
                 })
             else:
-                parlays = generate_parlays(
-                    parsed, 
-                    10,
-                    locked_legs=st.session_state.locked_legs,
-                    removed_legs=st.session_state.removed_legs,
-                    num_legs_range=st.session_state.num_legs_filter,
-                    odds_range=st.session_state.odds_range_filter
-                )
+                with st.spinner("Building parlays & fetching SGP prices..."):
+                    parlays = generate_parlays(
+                        parsed, 8,
+                        locked_legs=st.session_state.locked_legs,
+                        removed_legs=st.session_state.removed_legs,
+                        num_legs_range=st.session_state.num_legs_filter,
+                        odds_range=st.session_state.odds_range_filter,
+                    )
                 st.session_state.recommendations = parlays
-                
-                # No confirmation message - just show the parlays
-            
+                st.session_state.sgp_prices = {}
             st.rerun()
-    
-    # Recommendations
+
+    # ── Error messages ──
+    for msg in st.session_state.chat_history:
+        if msg['role'] == 'assistant':
+            st.warning(msg['content'])
+
+    # ── Parlay Results ──
     if st.session_state.recommendations:
-        col_title, col_regen = st.columns([3, 1])
+        col_title, col_regen = st.columns([4, 1])
         with col_title:
-            st.markdown(f"<h2>Parlays ({len(st.session_state.recommendations)})</h2>", unsafe_allow_html=True)
+            total = len(st.session_state.recommendations)
+            sgp_count = sum(1 for p in st.session_state.recommendations if p.get('sgp_status') == 'success')
+            st.markdown(
+                f"<h2 style='margin:0;'>{total} Parlays Generated</h2>"
+                f"<p style='margin:2px 0 12px 0; font-size:0.82rem;'>"
+                f"<span class='sgp-status success'>{sgp_count} SGP priced</span> "
+                f"<span class='sgp-status pending'>{total - sgp_count} estimated</span></p>",
+                unsafe_allow_html=True
+            )
         with col_regen:
             if st.button("🔄 Regenerate", use_container_width=True, key="regen_btn"):
-                if st.session_state.chat_history:
-                    for msg in reversed(st.session_state.chat_history):
-                        if msg['role'] == 'user':
-                            parsed = parse_narrative(msg['content'], force_event=st.session_state.selected_game)
-                            if parsed:
+                for msg in reversed(st.session_state.chat_history):
+                    if msg['role'] == 'user':
+                        parsed = parse_narrative(msg['content'], force_event=st.session_state.selected_game)
+                        if parsed:
+                            with st.spinner("Regenerating..."):
                                 parlays = generate_parlays(
-                                    parsed, 
-                                    10,
+                                    parsed, 8,
                                     locked_legs=st.session_state.locked_legs,
                                     removed_legs=st.session_state.removed_legs,
                                     num_legs_range=st.session_state.num_legs_filter,
-                                    odds_range=st.session_state.odds_range_filter
+                                    odds_range=st.session_state.odds_range_filter,
                                 )
-                                st.session_state.recommendations = parlays
-                                st.rerun()
-                            break
-        
-        # Mobile: Show swipe hint
-        st.markdown("""
-        <p class='caption' style='margin: 0.5rem 0; display: none;'>
-            <span style='display: inline-block;'>← Swipe to see more →</span>
-        </p>
-        <style>
-            @media (max-width: 768px) {
-                .caption span { display: inline-block !important; }
-            }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        # Start carousel container
-        st.markdown("<div class='carousel-container'>", unsafe_allow_html=True)
-        
+                            st.session_state.recommendations = parlays
+                            st.rerun()
+                        break
+
+        # ── Render each parlay card ──
         for parlay in st.session_state.recommendations:
-            st.markdown("<div class='parlay-card'>", unsafe_allow_html=True)
-            
-            # Header row
-            col_odds, col_info, col_select = st.columns([1.5, 2, 1.5])
-            
-            with col_odds:
-                st.markdown(f"<div class='odds-badge'>{parlay['odds_american']}</div>", unsafe_allow_html=True)
-                st.markdown(f"<p class='caption' style='margin-top: 0.25rem;'>{len(parlay['legs'])} legs • {parlay['implied_probability']}%</p>", unsafe_allow_html=True)
-            
-            with col_select:
-                if st.button("+ Add", key=f"select_{parlay['id']}", use_container_width=True):
+            odds_display = get_display_odds(parlay)
+            is_sgp = parlay.get('sgp_status') == 'success'
+            badge_class = 'odds-badge' if is_sgp else 'odds-badge odds-badge-pending'
+            source_label = 'SGP' if is_sgp else 'EST'
+
+            st.markdown(f"<div class='parlay-card'>", unsafe_allow_html=True)
+
+            # Card header
+            header_left, header_right = st.columns([3, 1])
+            with header_left:
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;gap:10px;'>"
+                    f"<div class='{badge_class}'>{odds_display}</div>"
+                    f"<div>"
+                    f"<span class='meta-chip'>{len(parlay['legs'])} legs</span>"
+                    f"<span class='meta-chip'>{source_label}</span>"
+                    f"</div></div>",
+                    unsafe_allow_html=True
+                )
+            with header_right:
+                if st.button("＋ Slip", key=f"add_{parlay['id']}", use_container_width=True):
                     st.session_state.selected_parlay = parlay
                     st.rerun()
-            
-            st.markdown("<hr style='margin: 0.75rem 0;'>", unsafe_allow_html=True)
-            
-            # Display legs
+
+            st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+
+            # Legs
             for idx, leg in enumerate(parlay['legs']):
                 is_locked = any(l['id'] == leg['id'] for l in st.session_state.locked_legs)
                 is_removed = any(l['id'] == leg['id'] for l in st.session_state.removed_legs)
-                
-                leg_class = 'locked-leg' if is_locked else ('removed-leg' if is_removed else 'leg-item')
-                
-                cols = st.columns([6, 0.7, 0.7])
-                
-                with cols[0]:
-                    st.markdown(f"""
-                    <div class='{leg_class}'>
-                        <strong>{leg['display']}</strong><br>
-                        <small>{leg['market']} • {leg['price']}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with cols[1]:
-                    lock_emoji = "🔒" if is_locked else "🔓"
-                    if st.button(lock_emoji, key=f"lock_{parlay['id']}_{idx}", help="Lock"):
+                css = 'locked-leg' if is_locked else ('removed-leg' if is_removed else '')
+
+                leg_col, lock_col, rm_col = st.columns([8, 0.6, 0.6])
+                with leg_col:
+                    player_str = f" · {leg['player']}" if leg.get('player') else ""
+                    st.markdown(
+                        f"<div class='leg-item {css}'>"
+                        f"<div class='leg-name'>{leg.get('name', '')}</div>"
+                        f"<div class='leg-meta'>{leg.get('market', '')}{player_str} · {leg.get('price', '')}</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                with lock_col:
+                    icon = "🔒" if is_locked else "🔓"
+                    if st.button(icon, key=f"lk_{parlay['id']}_{idx}"):
                         if is_locked:
                             st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
                         else:
-                            if not any(l['id'] == leg['id'] for l in st.session_state.locked_legs):
-                                st.session_state.locked_legs.append(leg)
+                            st.session_state.locked_legs.append(leg)
                             st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
                         st.rerun()
-                
-                with cols[2]:
-                    remove_emoji = "❌" if not is_removed else "↩️"
-                    if st.button(remove_emoji, key=f"remove_{parlay['id']}_{idx}", help="Remove"):
+                with rm_col:
+                    icon2 = "↩️" if is_removed else "✕"
+                    if st.button(icon2, key=f"rm_{parlay['id']}_{idx}"):
                         if is_removed:
                             st.session_state.removed_legs = [l for l in st.session_state.removed_legs if l['id'] != leg['id']]
                         else:
-                            if not any(l['id'] == leg['id'] for l in st.session_state.removed_legs):
-                                st.session_state.removed_legs.append(leg)
+                            st.session_state.removed_legs.append(leg)
                             st.session_state.locked_legs = [l for l in st.session_state.locked_legs if l['id'] != leg['id']]
                         st.rerun()
-            
-            st.markdown("</div>", unsafe_allow_html=True)  # Close parlay-card
-        
-        # Close carousel container
-        st.markdown("</div>", unsafe_allow_html=True)
 
-with col2:
+            st.markdown("</div>", unsafe_allow_html=True)  # close parlay-card
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# BET SLIP (right column)
+# ═══════════════════════════════════════════════════════════════════════
+with col_slip:
     st.markdown("<div class='bet-slip'>", unsafe_allow_html=True)
-    st.markdown("<h3 style='margin-top: 0; color: #000;'>Bet Slip</h3>", unsafe_allow_html=True)
-    
+    st.markdown("<h3 style='margin:0 0 4px 0;'>Bet Slip</h3>", unsafe_allow_html=True)
+
     if st.session_state.selected_parlay:
         parlay = st.session_state.selected_parlay
-        
-        # Display number of legs and clear all
-        col_legs, col_clear = st.columns([2, 1])
-        with col_legs:
-            st.markdown(f"<p style='color: #34C759; margin: 0; font-weight: 600;'>{len(parlay['legs'])} Legs Multi</p>", unsafe_allow_html=True)
-        with col_clear:
-            st.markdown(f"<p style='color: #8E8E93; margin: 0; font-size: 0.85rem; cursor: pointer;'>Clear All</p>", unsafe_allow_html=True)
-        
-        st.markdown("<hr style='margin: 0.75rem 0; border-color: #E5E5EA;'>", unsafe_allow_html=True)
-        
-        # Legs
+        odds_display = get_display_odds(parlay)
+        is_sgp = parlay.get('sgp_status') == 'success'
+
+        st.markdown(
+            f"<div style='display:flex;align-items:center;justify-content:space-between;margin:8px 0;'>"
+            f"<span class='meta-chip'>{len(parlay['legs'])} legs</span>"
+            f"<span class='sgp-status {'success' if is_sgp else 'pending'}'>{'SGP PRICE' if is_sgp else 'ESTIMATED'}</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+
         for leg in parlay['legs']:
-            st.markdown(f"""
-            <div style='background: #F9F9F9; padding: 0.75rem; border-radius: 8px; margin: 0.5rem 0;'>
-                <strong style='color: #000; font-size: 0.9rem;'>{leg['display']}</strong><br>
-                <small style='color: #8E8E93; font-size: 0.8rem;'>{leg['market']} • {leg['price']}</small>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("<hr style='margin: 0.75rem 0; border-color: #E5E5EA;'>", unsafe_allow_html=True)
-        
-        # Bet amount input
-        col_amount_label, col_amount_value = st.columns([1, 2])
-        with col_amount_label:
-            st.markdown("<p style='color: #000; margin: 0.5rem 0; font-size: 0.9rem;'>Stake:</p>", unsafe_allow_html=True)
-        with col_amount_value:
-            bet_amount = st.number_input("stake", min_value=1.0, value=10.0, step=1.0, label_visibility="collapsed")
-        
-        # Odds and payout
-        profit = calculate_payout(parlay['odds_american'], bet_amount)
-        total_payout = bet_amount + profit
-        
-        st.markdown(f"""
-        <div style='display: flex; justify-content: space-between; margin: 0.75rem 0;'>
-            <span style='color: #8E8E93; font-size: 0.9rem;'>@ {parlay['odds_american']}</span>
-            <span style='color: #000; font-weight: 600; font-size: 0.9rem;'>return: ${total_payout:.2f}</span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<hr style='margin: 0.75rem 0; border-color: #E5E5EA;'>", unsafe_allow_html=True)
-        
-        # Place bet button
-        if st.button("Place Multi", use_container_width=True, key="place_bet"):
-            st.success("Bet placed!")
-        
-        if st.button("Clear", use_container_width=True, key="clear_bet"):
+            player_str = f" · {leg['player']}" if leg.get('player') else ""
+            st.markdown(
+                f"<div class='leg-item'>"
+                f"<div class='leg-name'>{leg.get('name', '')}</div>"
+                f"<div class='leg-meta'>{leg.get('market', '')}{player_str} · {leg.get('price', '')}</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+
+        bet_amount = st.number_input("Stake ($)", min_value=1.0, value=10.0, step=5.0,
+                                     label_visibility="visible", key="slip_stake")
+        profit = calculate_payout(odds_display, bet_amount)
+        total = bet_amount + profit
+
+        st.markdown(
+            f"<div class='payout-row'>"
+            f"<span class='label'>Odds</span>"
+            f"<span class='value'>{odds_display}</span>"
+            f"</div>"
+            f"<div class='payout-row'>"
+            f"<span class='label'>Potential Profit</span>"
+            f"<span class='value green'>${profit:,.2f}</span>"
+            f"</div>"
+            f"<div class='payout-row'>"
+            f"<span class='label'>Total Payout</span>"
+            f"<span class='value green'>${total:,.2f}</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+
+        if st.button("Clear Slip", use_container_width=True, key="clear_slip"):
             st.session_state.selected_parlay = None
             st.rerun()
     else:
         st.markdown("""
-        <div style='text-align: center; padding: 3rem 1rem; color: #888;'>
-            <p style='margin: 0; font-size: 0.95rem;'>Add selections to get started</p>
+        <div class='bet-slip-empty'>
+            <div class='icon'>📋</div>
+            <p style='margin:0;font-size:0.88rem;'>Add a parlay to your slip</p>
         </div>
         """, unsafe_allow_html=True)
-    
+
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Sidebar
+
+# ═══════════════════════════════════════════════════════════════════════
+# SIDEBAR
+# ═══════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("<h2 style='margin-bottom: 1rem; color: #1a1a1a;'>Settings</h2>", unsafe_allow_html=True)
-    
-    # Game Selector
-    if st.session_state.events:
-        st.markdown("<h3 style='font-size: 0.95rem; margin-bottom: 0.5rem; color: #1a1a1a;'>Select Game</h3>", unsafe_allow_html=True)
-        game_options = ["Auto-detect"] + [
-            f"{e['teams']['away']['abbreviation']} @ {e['teams']['home']['abbreviation']}" 
-            for e in st.session_state.events
+    st.markdown("### ⚙️ Settings")
+
+    # Sportsbook selector
+    sportsbooks = ['draftkings', 'fanduel', 'betmgm', 'caesars', 'bet365', 'hard_rock']
+    sb_idx = st.selectbox("Sportsbook", range(len(sportsbooks)),
+                          format_func=lambda i: sportsbooks[i].replace('_', ' ').title(),
+                          index=sportsbooks.index(st.session_state.sportsbook)
+                          if st.session_state.sportsbook in sportsbooks else 0)
+    if sportsbooks[sb_idx] != st.session_state.sportsbook:
+        st.session_state.sportsbook = sportsbooks[sb_idx]
+        st.session_state.games = []
+        st.session_state.recommendations = []
+        load_games()
+        st.rerun()
+
+    # League selector
+    leagues = ['nba', 'nfl', 'mlb', 'nhl', 'ncaab', 'ncaaf']
+    lg_idx = st.selectbox("League", range(len(leagues)),
+                          format_func=lambda i: leagues[i].upper(),
+                          index=leagues.index(st.session_state.league)
+                          if st.session_state.league in leagues else 0)
+    if leagues[lg_idx] != st.session_state.league:
+        st.session_state.league = leagues[lg_idx]
+        st.session_state.games = []
+        st.session_state.recommendations = []
+        load_games()
+        st.rerun()
+
+    st.markdown("---")
+
+    # Game selector
+    if st.session_state.games:
+        st.markdown("### 🏟️ Select Game")
+        game_options = ["Auto-detect from prompt"] + [
+            f"{g['teams']['away'].get('abbreviation', '?')} @ {g['teams']['home'].get('abbreviation', '?')}"
+            for g in st.session_state.games
         ]
-        
-        selected_game_idx = st.selectbox(
-            "Game",
-            range(len(game_options)),
-            format_func=lambda x: game_options[x],
-            label_visibility="collapsed"
-        )
-        
-        if selected_game_idx == 0:
-            st.session_state.selected_game = None
-        else:
-            st.session_state.selected_game = st.session_state.events[selected_game_idx - 1]
-        
-        st.markdown("<hr>", unsafe_allow_html=True)
-    
-    st.markdown("<h3 style='font-size: 0.95rem; margin-bottom: 0.75rem; color: #1a1a1a;'>Filters</h3>", unsafe_allow_html=True)
-    
-    # Number of legs filter - NOW 2-10
-    st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.25rem; color: #6b6b6b;'>Number of Legs</p>", unsafe_allow_html=True)
-    num_legs = st.slider(
-        "legs",
-        min_value=2,
-        max_value=10,
-        value=(3, 5),
-        label_visibility="collapsed"
-    )
+        sel = st.selectbox("Game", range(len(game_options)),
+                           format_func=lambda i: game_options[i],
+                           label_visibility="collapsed")
+        st.session_state.selected_game = None if sel == 0 else st.session_state.games[sel - 1]
+
+    st.markdown("---")
+    st.markdown("### 🎛️ Filters")
+
+    num_legs = st.slider("Number of Legs", 2, 10, st.session_state.num_legs_filter)
     st.session_state.num_legs_filter = num_legs
-    
-    # Odds range filter
-    st.markdown("<p style='font-size: 0.85rem; margin-bottom: 0.25rem; margin-top: 0.75rem; color: #6b6b6b;'>Odds Range</p>", unsafe_allow_html=True)
-    odds_range = st.slider(
-        "odds",
-        min_value=1.2,
-        max_value=100.0,
-        value=(1.5, 50.0),
-        step=0.5,
-        label_visibility="collapsed"
-    )
+
+    odds_range = st.slider("Decimal Odds Range", 1.2, 100.0,
+                           st.session_state.odds_range_filter, step=0.5)
     st.session_state.odds_range_filter = odds_range
-    
-    st.markdown("<hr>", unsafe_allow_html=True)
-    
-    # Locked/Removed legs info
+
+    st.markdown("---")
+
+    # Locked / removed info
     if st.session_state.locked_legs:
-        st.markdown(f"<p style='color: #f59e0b; font-size: 0.9rem; margin: 0.5rem 0;'>🔒 {len(st.session_state.locked_legs)} locked</p>", unsafe_allow_html=True)
+        st.markdown(f"🔒 **{len(st.session_state.locked_legs)}** locked legs")
     if st.session_state.removed_legs:
-        st.markdown(f"<p style='color: #e53935; font-size: 0.9rem; margin: 0.5rem 0;'>❌ {len(st.session_state.removed_legs)} removed</p>", unsafe_allow_html=True)
-    
+        st.markdown(f"🚫 **{len(st.session_state.removed_legs)}** removed legs")
     if st.session_state.locked_legs or st.session_state.removed_legs:
-        if st.button("Clear All", use_container_width=True, key="clear_locks"):
+        if st.button("Clear Locks & Removals", use_container_width=True):
             st.session_state.locked_legs = []
             st.session_state.removed_legs = []
             st.rerun()
-    
-    st.markdown("<hr>", unsafe_allow_html=True)
-    
-    if st.button("Reload Games", use_container_width=True):
-        st.session_state.events = []
+
+    st.markdown("---")
+    if st.button("🔄 Reload Games", use_container_width=True):
+        st.session_state.games = []
         st.session_state.selected_game = None
-        st.session_state.chat_history = []
         st.session_state.recommendations = []
         st.session_state.locked_legs = []
         st.session_state.removed_legs = []
-        load_events()
+        load_games()
         st.rerun()
+
+    st.markdown(
+        "<p style='margin-top:2rem;font-size:0.72rem;color:#555D70;text-align:center;'>"
+        "Powered by OddsBlaze SGP BlazeBuilder API</p>",
+        unsafe_allow_html=True
+    )
