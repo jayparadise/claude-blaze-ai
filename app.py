@@ -14,8 +14,9 @@ st.set_page_config(
 
 # ─── API Configuration ───────────────────────────────────────────────
 API_KEY = '10019992-c9b1-46b5-be2c-9e760b1c2041'
-ODDS_API_BASE = 'https://data.oddsblaze.com/v1/odds'
-SGP_API_BASE = 'sgp.oddsblaze.com'
+ODDS_API_URL = 'https://odds.oddsblaze.com/'           # Odds endpoint
+SGP_API_TPL  = 'https://{sportsbook}.sgp.oddsblaze.com/'  # SGP endpoint
+# ACTIVE_API = 'https://active.markets.oddsblaze.com/'  # Available if needed
 DEFAULT_SPORTSBOOK = 'draftkings'
 DEFAULT_LEAGUE = 'nba'
 
@@ -366,11 +367,11 @@ for key, val in defaults.items():
 # ═══════════════════════════════════════════════════════════════════════
 
 def load_games():
-    """Load games from OddsBlaze v1 API."""
+    """Load games from OddsBlaze API."""
     try:
         sportsbook = st.session_state.sportsbook
         league = st.session_state.league
-        url = f"{ODDS_API_BASE}/{sportsbook}_{league}.json?key={API_KEY}"
+        url = f"{ODDS_API_URL}?key={API_KEY}&league={league}&sportsbook={sportsbook}"
         response = requests.get(url, timeout=15)
 
         if response.status_code != 200:
@@ -378,20 +379,25 @@ def load_games():
             return False
 
         data = response.json()
-        games = data.get('games', [])
+
+        # Handle both response formats:
+        # Format A (odds.oddsblaze.com): { "events": [ { ..., "odds": [...] } ] }
+        # Format B (data.oddsblaze.com): { "games": [ { ..., "sportsbooks": [ { "odds": [...] } ] } ] }
+        games = data.get('events') or data.get('games') or []
 
         if not games:
             st.warning("No games found for the selected league/sportsbook.")
             return False
 
-        # Flatten: attach sportsbook odds directly onto each game for easier access
+        # If using Format B, flatten sportsbook odds onto each game
         for game in games:
-            flat_odds = []
-            for sb in game.get('sportsbooks', []):
-                if sb.get('id') == sportsbook:
-                    flat_odds = sb.get('odds', [])
-                    break
-            game['odds'] = flat_odds
+            if 'odds' not in game and 'sportsbooks' in game:
+                flat_odds = []
+                for sb in game.get('sportsbooks', []):
+                    if sb.get('id') == sportsbook:
+                        flat_odds = sb.get('odds', [])
+                        break
+                game['odds'] = flat_odds
 
         st.session_state.games = games
         return True
@@ -411,7 +417,7 @@ def fetch_sgp_price(sgp_tokens, sportsbook=None):
     Returns dict: {"price": "+425"} or {"message": "..."} or None on error
     """
     sportsbook = sportsbook or st.session_state.sportsbook
-    url = f"https://{sportsbook}.{SGP_API_BASE}/?key={API_KEY}"
+    url = SGP_API_TPL.format(sportsbook=sportsbook) + f"?key={API_KEY}"
 
     try:
         response = requests.post(
